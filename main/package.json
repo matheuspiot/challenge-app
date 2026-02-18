@@ -1,6 +1,6 @@
 {
   "name": "desafio-main",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Electron main process",
   "author": "Clube Piot",
   "main": "src/main.js",
@@ -26,6 +26,10 @@
       {
         "from": "../renderer/dist",
         "to": "renderer"
+      },
+      {
+        "from": "build/icon.ico",
+        "to": "icon.ico"
       }
     ],
     "publish": [
@@ -47,8 +51,9 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
+      "include": "build/installer.nsh",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico"
     }
