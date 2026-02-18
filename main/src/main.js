@@ -350,9 +350,11 @@ function setupIpcHandlers() {
 
 function createMainWindow() {
   const devIconPath = path.join(__dirname, '..', 'build', 'icon.png');
+  const prodIconPath = path.join(process.resourcesPath, 'icon.ico');
+  const windowIconPath = isDev ? devIconPath : prodIconPath;
   mainWindow = new BrowserWindow({
     title: 'Challenge App',
-    icon: fs.existsSync(devIconPath) ? devIconPath : undefined,
+    icon: fs.existsSync(windowIconPath) ? windowIconPath : undefined,
     width: 1280,
     height: 820,
     minWidth: 1024,
