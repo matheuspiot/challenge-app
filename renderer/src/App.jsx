@@ -88,7 +88,6 @@ export default function App() {
   if (!user) {
     return (
       <>
-        {updateStatus?.message ? <div className="update-status-bar">{updateStatus.message}</div> : null}
         <AuthPage onAuthSuccess={onAuthSuccess} />
         <footer className="app-footer">Versão {appMeta.version} • {updateStatus?.message || 'Pronto'}</footer>
       </>
@@ -98,7 +97,6 @@ export default function App() {
   if (selectedChallenge) {
     return (
       <>
-        {updateStatus?.message ? <div className="update-status-bar">{updateStatus.message}</div> : null}
         <ChallengePage
           user={user}
           challenge={selectedChallenge}
@@ -112,7 +110,6 @@ export default function App() {
 
   return (
     <>
-      {updateStatus?.message ? <div className="update-status-bar">{updateStatus.message}</div> : null}
       <DashboardPage
         user={user}
         challenges={challenges}

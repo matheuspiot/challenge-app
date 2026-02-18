@@ -15,6 +15,7 @@ let mainWindow = null;
 let dbCtx = null;
 let services = null;
 let updateStatus = { status: 'idle', message: 'Atualizações não verificadas.', progress: null };
+let updateStatusTimeout = null;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -42,10 +43,21 @@ async function loadDevRenderer(windowRef) {
 }
 
 function setUpdateStatus(status, message, progress = null) {
+  if (updateStatusTimeout) {
+    clearTimeout(updateStatusTimeout);
+    updateStatusTimeout = null;
+  }
   updateStatus = { status, message, progress };
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('updates:status', updateStatus);
   }
+}
+
+function setTransientUpdateStatus(status, message, timeoutMs = 4500) {
+  setUpdateStatus(status, message);
+  updateStatusTimeout = setTimeout(() => {
+    setUpdateStatus('idle', '');
+  }, timeoutMs);
 }
 
 function csvEscape(value) {
@@ -138,11 +150,11 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-not-available', () => {
-    setUpdateStatus('up_to_date', 'Aplicativo atualizado.');
+    setTransientUpdateStatus('up_to_date', 'Aplicativo atualizado.');
   });
 
   autoUpdater.on('error', (error) => {
-    setUpdateStatus('error', 'Não foi possível verificar atualização agora.');
+    setTransientUpdateStatus('error', 'Não foi possível verificar atualização agora.');
     logger.error('Erro no autoUpdater', { message: error.message, stack: error.stack });
   });
 
