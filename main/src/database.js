@@ -53,9 +53,36 @@ function initializeDatabase(userDataPath) {
       FOREIGN KEY (athlete_id) REFERENCES athletes(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS enrollments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      athlete_id INTEGER NOT NULL UNIQUE,
+      total_amount_cents INTEGER NOT NULL,
+      payment_type TEXT NOT NULL CHECK(payment_type IN ('cash', 'installments')),
+      installments_count INTEGER NOT NULL,
+      first_due_date TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (athlete_id) REFERENCES athletes(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS installments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      enrollment_id INTEGER NOT NULL,
+      installment_number INTEGER NOT NULL,
+      due_date TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL,
+      paid_at TEXT,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_challenges_user_id ON challenges(user_id);
     CREATE INDEX IF NOT EXISTS idx_athletes_challenge_id ON athletes(challenge_id);
     CREATE INDEX IF NOT EXISTS idx_activities_athlete_id ON activities(athlete_id);
+    CREATE INDEX IF NOT EXISTS idx_enrollments_athlete_id ON enrollments(athlete_id);
+    CREATE INDEX IF NOT EXISTS idx_installments_enrollment_id ON installments(enrollment_id);
+    CREATE INDEX IF NOT EXISTS idx_installments_due_date ON installments(due_date);
   `);
 
   return { db, dbPath };

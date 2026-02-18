@@ -102,6 +102,75 @@ Saída:
 main/dist/Desafio de Corrida Setup 1.0.0.exe
 ```
 
+## Atualização automática (GitHub Releases)
+
+O app usa `electron-updater` com `electron-builder` publicando no GitHub Releases.
+
+- Verifica atualização automaticamente ao abrir o app.
+- Se houver nova versão, faz download em background.
+- Ao terminar, mostra modal:
+  - `Nova versão disponível. Deseja reiniciar para atualizar?`
+  - Botões: `Atualizar agora` e `Depois`.
+- Também existe menu manual: `Ajuda > Verificar atualizações`.
+- Status exibido na UI: `Verificando atualizações`, `Baixando X%`, `Atualização pronta`.
+
+Observação:
+
+- Banco SQLite permanece em `app.getPath("userData")`, então os dados não são perdidos ao atualizar.
+- Para desativar auto update em testes locais:
+  - Windows PowerShell: `$env:DISABLE_AUTO_UPDATE='1'; npm run dev`
+
+## Fluxo de release (passo a passo)
+
+### 1) Versionar
+
+No `main/package.json`, incremente a versão:
+
+- Exemplo: `1.0.0` -> `1.0.1`
+
+### 2) Gerar build Windows
+
+```bash
+npm run dist:win
+```
+
+Arquivos de saída em `main/dist`:
+
+- `Desafio de Corrida Setup <versão>.exe`
+- `latest.yml` (metadados de update)
+- `.blockmap`
+
+### 3) Criar release no GitHub (público)
+
+No repositório `https://github.com/matheuspiot/challenge-app`:
+
+1. Crie uma release com tag exatamente igual à versão (`v1.0.1` recomendado).
+2. Faça upload dos artefatos de `main/dist`:
+   - instalador `.exe`
+   - `latest.yml`
+   - `.blockmap`
+3. Publique a release como `Latest release`.
+
+Como o repositório de releases é público, o app final não precisa token para baixar atualização.
+
+### 4) Testar atualização entre versões
+
+1. Instale a versão antiga (ex: `1.0.0`).
+2. Publique a nova versão (ex: `1.0.1`) no GitHub Releases.
+3. Abra o app `1.0.0`.
+4. Verifique:
+   - status: `Verificando atualizações` -> `Baixando ...%` -> `Atualização pronta`.
+   - modal de reinício para atualizar.
+5. Clique em `Atualizar agora` e confirme que abriu na nova versão.
+
+### 5) Checklist de release
+
+- Versão incrementada em `main/package.json`.
+- `npm run build` sem erros.
+- `npm run dist:win` gerou `exe + latest.yml + blockmap`.
+- Release publicada no GitHub com artefatos corretos.
+- Teste de update automático validado.
+
 ## Funcionalidades implementadas (MVP)
 
 - Cadastro/login local de organizador
@@ -115,6 +184,75 @@ main/dist/Desafio de Corrida Setup 1.0.0.exe
 - Backup do banco (`.db`)
 - Restore do banco (`.db`)
 - Interface em português com validações e mensagens de erro
+
+## Módulo de Inscrição e Pagamentos (Pix manual)
+
+O sistema agora possui controle financeiro por atleta, operado apenas pelo organizador.
+
+### Regras de bloqueio de KM
+
+- O organizador só registra KM se o atleta estiver:
+  - em dia, ou
+  - com atraso de até 10 dias (tolerância).
+- Se existir parcela vencida há mais de 10 dias:
+  - a UI desabilita o botão de registrar KM;
+  - o backend bloqueia via API/IPC (`PAYMENT_BLOCKED`);
+  - o status é exibido como bloqueado por inadimplência.
+
+### Cadastro financeiro do atleta
+
+Ao cadastrar/editar atleta:
+
+- valor total da inscrição (obrigatório)
+- forma de pagamento (`à vista` ou `parcelado`)
+- quantidade de parcelas (`2` a `12` para parcelado)
+- data da primeira parcela
+
+O sistema gera automaticamente parcelas mensais.
+
+### Operações de pagamentos
+
+- Marcar parcela como paga manualmente (Pix recebido)
+- Reabrir parcela (voltar para em aberto), se necessário
+- Status calculado por parcela:
+  - `Em aberto`
+  - `Pago`
+  - `Vencido`
+  - `Vencido há X dias`
+  - `Bloqueado` (quando atraso > 10 dias)
+
+### Novas telas no desafio
+
+- `Pagamentos`: visualização de parcelas do atleta selecionado e ação de marcar pago
+- `Pendências`: lista atletas com parcelas vencidas, com ação rápida de abrir atleta e marcar pago
+- `Finanças`: resumo com:
+  - total previsto
+  - total recebido
+  - total em aberto
+  - inadimplência (atletas + valor)
+  - lista de parcelas pagas
+  - lista de parcelas vencidas
+
+### Estrutura de banco adicionada
+
+- `enrollments`
+  - `id`
+  - `athlete_id` (único)
+  - `total_amount_cents`
+  - `payment_type` (`cash`/`installments`)
+  - `installments_count`
+  - `first_due_date`
+  - `created_at`
+- `installments`
+  - `id`
+  - `enrollment_id`
+  - `installment_number`
+  - `due_date`
+  - `amount_cents`
+  - `paid_at`
+  - `note`
+  - `created_at`
+  - `updated_at`
 
 ## Comandos úteis
 

@@ -14,12 +14,10 @@ export function AuthPage({ onAuthSuccess }) {
     setError('');
     setLoading(true);
     try {
-      let response;
-      if (mode === 'register') {
-        response = await callApi('register', { name, email, password });
-      } else {
-        response = await callApi('login', { email, password });
-      }
+      const response =
+        mode === 'register'
+          ? await callApi('register', { name, email, password })
+          : await callApi('login', { email, password });
       onAuthSuccess(response.user);
     } catch (err) {
       setError(err.message);
@@ -53,14 +51,7 @@ export function AuthPage({ onAuthSuccess }) {
             {loading ? 'Processando...' : mode === 'register' ? 'Criar conta' : 'Entrar'}
           </button>
         </form>
-        <button
-          className="btn-link"
-          type="button"
-          onClick={() => {
-            setMode(mode === 'register' ? 'login' : 'register');
-            setError('');
-          }}
-        >
+        <button className="btn-link" type="button" onClick={() => setMode(mode === 'register' ? 'login' : 'register')}>
           {mode === 'register' ? 'Já tenho conta' : 'Criar nova conta'}
         </button>
       </div>

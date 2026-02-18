@@ -14,6 +14,14 @@ contextBridge.exposeInMainWorld('api', {
   updateAthlete: (payload) => ipcRenderer.invoke('athletes:update', payload),
   deleteAthlete: (payload) => ipcRenderer.invoke('athletes:delete', payload),
 
+  savePaymentPlan: (payload) => ipcRenderer.invoke('payments:save-plan', payload),
+  getAthletePayments: (payload) => ipcRenderer.invoke('payments:get-athlete', payload),
+  markInstallmentPaid: (payload) => ipcRenderer.invoke('payments:mark-paid', payload),
+  markInstallmentOpen: (payload) => ipcRenderer.invoke('payments:mark-open', payload),
+  getAthletePaymentStatus: (payload) => ipcRenderer.invoke('payments:athlete-status', payload),
+  listPaymentPendencies: (payload) => ipcRenderer.invoke('payments:pendencies', payload),
+  getFinanceSummary: (payload) => ipcRenderer.invoke('payments:finance-summary', payload),
+
   createActivity: (payload) => ipcRenderer.invoke('activities:create', payload),
   listActivities: (payload) => ipcRenderer.invoke('activities:list', payload),
 
@@ -22,7 +30,17 @@ contextBridge.exposeInMainWorld('api', {
 
   exportRankingCsv: (payload) => ipcRenderer.invoke('export:ranking-csv', payload),
   exportActivitiesCsv: (payload) => ipcRenderer.invoke('export:activities-csv', payload),
+  exportFinancePaidCsv: (payload) => ipcRenderer.invoke('export:finance-paid-csv', payload),
+  exportFinanceOverdueCsv: (payload) => ipcRenderer.invoke('export:finance-overdue-csv', payload),
 
   backupDatabase: () => ipcRenderer.invoke('backup:create'),
-  restoreDatabase: () => ipcRenderer.invoke('backup:restore')
+  restoreDatabase: () => ipcRenderer.invoke('backup:restore'),
+
+  getUpdateStatus: () => ipcRenderer.invoke('updates:get-status'),
+  checkForUpdates: () => ipcRenderer.invoke('updates:check-manual'),
+  onUpdateStatus: (callback) => {
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on('updates:status', handler);
+    return () => ipcRenderer.removeListener('updates:status', handler);
+  }
 });

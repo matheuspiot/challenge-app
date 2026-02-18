@@ -5,7 +5,7 @@
   "author": "Clube Piot",
   "main": "src/main.js",
   "scripts": {
-    "dev": "electron .",
+    "dev": "set ELECTRON_RUN_AS_NODE=&& electron .",
     "build": "echo Main pronto",
     "dist:win": "electron-builder --win nsis",
     "postinstall": "electron-builder install-app-deps"
@@ -28,6 +28,15 @@
         "to": "renderer"
       }
     ],
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "matheuspiot",
+        "repo": "challenge-app",
+        "releaseType": "release",
+        "private": false
+      }
+    ],
     "win": {
       "signAndEditExecutable": false,
       "target": [
@@ -44,7 +53,8 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.8.1",
-    "desafio-corrida-desktop": "file:.."
+    "desafio-corrida-desktop": "file:..",
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "electron": "^35.0.0",

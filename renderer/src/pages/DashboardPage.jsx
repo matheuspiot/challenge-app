@@ -1,29 +1,21 @@
 import { useMemo, useState } from 'react';
 
-const emptyChallenge = {
-  title: '',
-  description: '',
-  goalKm: '',
-  startDate: '',
-  endDate: ''
+const emptyChallenge = { title: '', description: '', goalKm: '', startDate: '', endDate: '' };
+const nf = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const formatKm = (v) => `${nf.format(Number(v || 0))} km`;
+const formatDate = (v) => {
+  if (!v) return '-';
+  const [y, m, d] = String(v).slice(0, 10).split('-');
+  return y && m && d ? `${d}/${m}/${y}` : v;
 };
 
-export function DashboardPage({
-  user,
-  challenges,
-  loading,
-  error,
-  onOpenChallenge,
-  onSaveChallenge,
-  onRemoveChallenge,
-  onLogout
-}) {
+export function DashboardPage({ user, challenges, loading, error, onOpenChallenge, onSaveChallenge, onRemoveChallenge, onLogout }) {
   const [form, setForm] = useState(emptyChallenge);
   const [editId, setEditId] = useState(null);
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const sortedChallenges = useMemo(
+  const sorted = useMemo(
     () =>
       [...challenges].sort((a, b) => {
         if (a.end_date < b.end_date) return -1;
@@ -35,19 +27,7 @@ export function DashboardPage({
 
   function startEdit(challenge) {
     setEditId(challenge.id);
-    setForm({
-      title: challenge.title || '',
-      description: challenge.description || '',
-      goalKm: challenge.goal_km ?? '',
-      startDate: challenge.start_date || '',
-      endDate: challenge.end_date || ''
-    });
-    setFormError('');
-  }
-
-  function resetForm() {
-    setEditId(null);
-    setForm(emptyChallenge);
+    setForm({ title: challenge.title || '', description: challenge.description || '', goalKm: challenge.goal_km ?? '', startDate: challenge.start_date || '', endDate: challenge.end_date || '' });
     setFormError('');
   }
 
@@ -57,7 +37,8 @@ export function DashboardPage({
     setFormError('');
     try {
       await onSaveChallenge(form, editId);
-      resetForm();
+      setEditId(null);
+      setForm(emptyChallenge);
     } catch (err) {
       setFormError(err.message);
     } finally {
@@ -72,69 +53,21 @@ export function DashboardPage({
           <h2>Olá, {user.name}</h2>
           <p>Gerencie seus desafios de corrida offline.</p>
         </div>
-        <button className="btn-secondary" onClick={onLogout}>
-          Sair
-        </button>
+        <button className="btn-secondary" onClick={onLogout}>Sair</button>
       </header>
 
       <section className="card">
         <h3>{editId ? 'Editar desafio' : 'Novo desafio'}</h3>
         <form onSubmit={submitChallenge} className="form-grid">
-          <label>
-            Título
-            <input
-              value={form.title}
-              onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))}
-              required
-            />
-          </label>
-          <label>
-            Meta (km)
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.goalKm}
-              onChange={(e) => setForm((prev) => ({ ...prev, goalKm: e.target.value }))}
-              required
-            />
-          </label>
-          <label>
-            Data de início
-            <input
-              type="date"
-              value={form.startDate}
-              onChange={(e) => setForm((prev) => ({ ...prev, startDate: e.target.value }))}
-              required
-            />
-          </label>
-          <label>
-            Data limite
-            <input
-              type="date"
-              value={form.endDate}
-              onChange={(e) => setForm((prev) => ({ ...prev, endDate: e.target.value }))}
-              required
-            />
-          </label>
-          <label className="full">
-            Descrição
-            <textarea
-              rows="2"
-              value={form.description}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-            />
-          </label>
+          <label>Título<input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} required /></label>
+          <label>Meta (km)<input type="number" min="0" step="0.01" value={form.goalKm} onChange={(e) => setForm((p) => ({ ...p, goalKm: e.target.value }))} required /></label>
+          <label>Data de início<input type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))} required /></label>
+          <label>Data limite<input type="date" value={form.endDate} onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))} required /></label>
+          <label className="full">Descrição<textarea rows="2" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} /></label>
           {formError && <div className="error-box full">{formError}</div>}
           <div className="actions full">
-            <button className="btn-primary" disabled={saving} type="submit">
-              {saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Criar desafio'}
-            </button>
-            {editId && (
-              <button type="button" className="btn-secondary" onClick={resetForm}>
-                Cancelar edição
-              </button>
-            )}
+            <button className="btn-primary" disabled={saving} type="submit">{saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Criar desafio'}</button>
+            {editId && <button type="button" className="btn-secondary" onClick={() => { setEditId(null); setForm(emptyChallenge); }}>Cancelar edição</button>}
           </div>
         </form>
       </section>
@@ -143,28 +76,21 @@ export function DashboardPage({
         <h3>Seus desafios</h3>
         {error && <div className="error-box">{error}</div>}
         {loading ? <p>Carregando...</p> : null}
-        {!loading && sortedChallenges.length === 0 ? <p>Nenhum desafio cadastrado.</p> : null}
+        {!loading && sorted.length === 0 ? <p>Nenhum desafio cadastrado.</p> : null}
         <div className="challenge-list">
-          {sortedChallenges.map((challenge) => (
+          {sorted.map((challenge) => (
             <article key={challenge.id} className="challenge-item">
               <div>
                 <h4>{challenge.title}</h4>
                 <p>{challenge.description || 'Sem descrição.'}</p>
                 <small>
-                  {challenge.start_date} até {challenge.end_date} | Meta {Number(challenge.goal_km).toFixed(2)} km |
-                  Total {Number(challenge.total_km).toFixed(2)} km | Atletas {challenge.athletes_count}
+                  {formatDate(challenge.start_date)} até {formatDate(challenge.end_date)} | Meta {formatKm(challenge.goal_km)} | Total {formatKm(challenge.total_km)} | Atletas {challenge.athletes_count}
                 </small>
               </div>
               <div className="actions">
-                <button className="btn-primary" onClick={() => onOpenChallenge(challenge)}>
-                  Abrir
-                </button>
-                <button className="btn-secondary" onClick={() => startEdit(challenge)}>
-                  Editar
-                </button>
-                <button className="btn-danger" onClick={() => onRemoveChallenge(challenge.id)}>
-                  Excluir
-                </button>
+                <button className="btn-primary" onClick={() => onOpenChallenge(challenge)}>Abrir</button>
+                <button className="btn-secondary" onClick={() => startEdit(challenge)}>Editar</button>
+                <button className="btn-danger" onClick={() => onRemoveChallenge(challenge.id)}>Excluir</button>
               </div>
             </article>
           ))}
