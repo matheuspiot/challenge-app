@@ -106,7 +106,6 @@ export default function App() {
           onUpdated={() => loadChallenges(user.id)}
           onUserUpdated={onUserUpdated}
         />
-        <footer className="app-footer">Versão {appMeta.version} • {updateStatus?.message || 'Pronto'}</footer>
       </>
     );
   }
@@ -124,7 +123,6 @@ export default function App() {
         onRemoveChallenge={removeChallenge}
         onLogout={logout}
       />
-      <footer className="app-footer">Versão {appMeta.version} • {updateStatus?.message || 'Pronto'}</footer>
     </>
   );
 }
