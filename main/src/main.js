@@ -142,7 +142,7 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('error', (error) => {
-    setUpdateStatus('idle', '');
+    setUpdateStatus('error', 'Não foi possível verificar atualização agora.');
     logger.error('Erro no autoUpdater', { message: error.message, stack: error.stack });
   });
 
@@ -333,6 +333,7 @@ function setupIpcHandlers() {
 
   handle('updates:get-status', () => updateStatus);
   handle('updates:check-manual', () => triggerManualUpdateCheck(false));
+  handle('app:get-meta', () => ({ version: app.getVersion(), name: app.getName() }));
 }
 
 function createMainWindow() {

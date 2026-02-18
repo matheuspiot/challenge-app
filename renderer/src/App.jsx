@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { callApi, getUpdateStatus, subscribeUpdateStatus } from './api';
+import { callApi, getAppMeta, getUpdateStatus, subscribeUpdateStatus } from './api';
 import { AuthPage } from './pages/AuthPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ChallengePage } from './pages/ChallengePage';
@@ -11,6 +11,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [updateStatus, setUpdateStatus] = useState({ status: 'idle', message: '' });
+  const [appMeta, setAppMeta] = useState({ version: '-', name: 'Challenge App' });
 
   async function loadChallenges(userId) {
     setLoading(true);
@@ -33,6 +34,9 @@ export default function App() {
 
   useEffect(() => {
     let unsubscribe = () => {};
+    getAppMeta()
+      .then((meta) => setAppMeta(meta || { version: '-', name: 'Challenge App' }))
+      .catch(() => {});
     getUpdateStatus()
       .then((status) => setUpdateStatus(status || { status: 'idle', message: '' }))
       .catch(() => {});
@@ -86,6 +90,7 @@ export default function App() {
       <>
         {updateStatus?.message ? <div className="update-status-bar">{updateStatus.message}</div> : null}
         <AuthPage onAuthSuccess={onAuthSuccess} />
+        <footer className="app-footer">Versão {appMeta.version} • {updateStatus?.message || 'Pronto'}</footer>
       </>
     );
   }
@@ -101,6 +106,7 @@ export default function App() {
           onUpdated={() => loadChallenges(user.id)}
           onUserUpdated={onUserUpdated}
         />
+        <footer className="app-footer">Versão {appMeta.version} • {updateStatus?.message || 'Pronto'}</footer>
       </>
     );
   }
@@ -118,6 +124,7 @@ export default function App() {
         onRemoveChallenge={removeChallenge}
         onLogout={logout}
       />
+      <footer className="app-footer">Versão {appMeta.version} • {updateStatus?.message || 'Pronto'}</footer>
     </>
   );
 }

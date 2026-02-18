@@ -33,6 +33,11 @@ export function subscribeUpdateStatus(callback) {
   return api.onUpdateStatus(callback);
 }
 
+export async function getAppMeta() {
+  const api = ensureApi();
+  return api.getAppMeta();
+}
+
 export async function getAthletePayments(payload) {
   const api = ensureApi();
   return api.getAthletePayments(payload);

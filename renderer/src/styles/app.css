@@ -28,6 +28,19 @@ body { margin: 0; background: var(--bg); color: var(--text); }
   padding: 8px 14px;
   font-size: 0.9rem;
 }
+.app-footer {
+  position: fixed;
+  right: 12px;
+  bottom: 10px;
+  z-index: 1200;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  color: #475569;
+  backdrop-filter: blur(4px);
+}
 
 .auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
 .auth-card { width: min(460px, 100%); background: var(--surface); border-radius: 20px; padding: 24px; box-shadow: 0 10px 30px rgba(17, 24, 39, 0.07); }

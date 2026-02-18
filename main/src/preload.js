@@ -39,6 +39,7 @@ contextBridge.exposeInMainWorld('api', {
 
   getUpdateStatus: () => ipcRenderer.invoke('updates:get-status'),
   checkForUpdates: () => ipcRenderer.invoke('updates:check-manual'),
+  getAppMeta: () => ipcRenderer.invoke('app:get-meta'),
   onUpdateStatus: (callback) => {
     const handler = (_event, payload) => callback(payload);
     ipcRenderer.on('updates:status', handler);
