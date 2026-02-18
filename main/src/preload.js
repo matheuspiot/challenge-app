@@ -3,6 +3,7 @@
 contextBridge.exposeInMainWorld('api', {
   register: (payload) => ipcRenderer.invoke('auth:register', payload),
   login: (payload) => ipcRenderer.invoke('auth:login', payload),
+  updateProfile: (payload) => ipcRenderer.invoke('auth:update-profile', payload),
 
   listChallenges: (userId) => ipcRenderer.invoke('challenges:list', { userId }),
   createChallenge: (payload) => ipcRenderer.invoke('challenges:create', payload),

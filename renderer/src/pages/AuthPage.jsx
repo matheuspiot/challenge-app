@@ -4,7 +4,7 @@ import { callApi } from '../api';
 export function AuthPage({ onAuthSuccess }) {
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,8 +16,8 @@ export function AuthPage({ onAuthSuccess }) {
     try {
       const response =
         mode === 'register'
-          ? await callApi('register', { name, email, password })
-          : await callApi('login', { email, password });
+          ? await callApi('register', { name, username, password })
+          : await callApi('login', { username, password });
       onAuthSuccess(response.user);
     } catch (err) {
       setError(err.message);
@@ -29,8 +29,14 @@ export function AuthPage({ onAuthSuccess }) {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <h1>Desafio de Corrida</h1>
-        <p>Gerencie atletas, quilômetros e ranking localmente.</p>
+        <div className="auth-brand">
+          <span className="auth-logo" />
+          <div>
+            <h1>Challenge App</h1>
+            <p>Gerencie atletas, quilômetros e ranking localmente.</p>
+          </div>
+        </div>
+
         <form onSubmit={submit} className="stack">
           {mode === 'register' && (
             <label>
@@ -39,8 +45,8 @@ export function AuthPage({ onAuthSuccess }) {
             </label>
           )}
           <label>
-            E-mail
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            Usuário
+            <input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} required />
           </label>
           <label>
             Senha
@@ -51,9 +57,12 @@ export function AuthPage({ onAuthSuccess }) {
             {loading ? 'Processando...' : mode === 'register' ? 'Criar conta' : 'Entrar'}
           </button>
         </form>
-        <button className="btn-link" type="button" onClick={() => setMode(mode === 'register' ? 'login' : 'register')}>
-          {mode === 'register' ? 'Já tenho conta' : 'Criar nova conta'}
-        </button>
+
+        <div className="auth-footer-actions">
+          <button className="btn-link" type="button" onClick={() => setMode(mode === 'register' ? 'login' : 'register')}>
+            {mode === 'register' ? 'Já tenho conta' : 'Criar nova conta'}
+          </button>
+        </div>
       </div>
     </div>
   );

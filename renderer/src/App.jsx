@@ -51,6 +51,10 @@ export default function App() {
     setSelectedChallenge(null);
   }
 
+  function onUserUpdated(updatedUser) {
+    setUser(updatedUser);
+  }
+
   async function saveChallenge(form, challengeId = null) {
     if (!user) return;
     if (challengeId) {
@@ -95,6 +99,7 @@ export default function App() {
           challenge={selectedChallenge}
           onBack={() => setSelectedChallenge(null)}
           onUpdated={() => loadChallenges(user.id)}
+          onUserUpdated={onUserUpdated}
         />
       </>
     );

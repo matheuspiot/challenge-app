@@ -15,6 +15,7 @@ function initializeDatabase(userDataPath) {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      username TEXT UNIQUE,
       email TEXT NOT NULL UNIQUE,
       password_hash TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -38,6 +39,9 @@ function initializeDatabase(userDataPath) {
       name TEXT NOT NULL,
       phone TEXT,
       bib_number TEXT,
+      birth_date TEXT,
+      gender TEXT,
+      shirt_size TEXT,
       personal_goal_km REAL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE
@@ -84,6 +88,31 @@ function initializeDatabase(userDataPath) {
     CREATE INDEX IF NOT EXISTS idx_installments_enrollment_id ON installments(enrollment_id);
     CREATE INDEX IF NOT EXISTS idx_installments_due_date ON installments(due_date);
   `);
+
+  const athleteColumns = db.prepare('PRAGMA table_info(athletes)').all().map((c) => c.name);
+  if (!athleteColumns.includes('birth_date')) db.exec('ALTER TABLE athletes ADD COLUMN birth_date TEXT');
+  if (!athleteColumns.includes('gender')) db.exec('ALTER TABLE athletes ADD COLUMN gender TEXT');
+  if (!athleteColumns.includes('shirt_size')) db.exec('ALTER TABLE athletes ADD COLUMN shirt_size TEXT');
+
+  const userColumns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  if (!userColumns.includes('username')) db.exec('ALTER TABLE users ADD COLUMN username TEXT');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)');
+
+  const usersWithoutUsername = db.prepare("SELECT id, name, email FROM users WHERE username IS NULL OR TRIM(username) = ''").all();
+  const setUsername = db.prepare('UPDATE users SET username = ? WHERE id = ?');
+  const usernameExists = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?');
+  for (const u of usersWithoutUsername) {
+    const fromEmail = String(u.email || '').split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const fromName = String(u.name || '').toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    const base = (fromEmail || fromName || `organizador_${u.id}`).slice(0, 24) || `organizador_${u.id}`;
+    let candidate = base;
+    let i = 1;
+    while (usernameExists.get(candidate, u.id)) {
+      candidate = `${base}_${i}`;
+      i += 1;
+    }
+    setUsername.run(candidate, u.id);
+  }
 
   return { db, dbPath };
 }

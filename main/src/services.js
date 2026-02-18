@@ -1,4 +1,4 @@
-const bcrypt = require('bcryptjs');
+﻿const bcrypt = require('bcryptjs');
 
 class AppError extends Error {
   constructor(message, code = 'APP_ERROR') {
@@ -70,9 +70,11 @@ function splitAmount(totalCents, count) {
 
 function createServices(db) {
   const statements = {
-    createUser: db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)'),
+    createUser: db.prepare('INSERT INTO users (name, username, email, password_hash) VALUES (?, ?, ?, ?)'),
     getUserByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
-    getUserById: db.prepare('SELECT id, name, email, created_at FROM users WHERE id = ?'),
+    getUserByUsername: db.prepare('SELECT * FROM users WHERE username = ?'),
+    getUserById: db.prepare('SELECT id, name, username, email, created_at FROM users WHERE id = ?'),
+    updateUserProfile: db.prepare('UPDATE users SET name = ?, username = ?, password_hash = ? WHERE id = ?'),
 
     listChallenges: db.prepare(`
       SELECT c.*, COALESCE(SUM(act.km), 0) AS total_km, COUNT(DISTINCT a.id) AS athletes_count
@@ -97,8 +99,14 @@ function createServices(db) {
       ORDER BY a.name COLLATE NOCASE ASC
     `),
     getAthlete: db.prepare('SELECT * FROM athletes WHERE id = ? AND challenge_id = ?'),
-    createAthlete: db.prepare('INSERT INTO athletes (challenge_id, name, phone, bib_number, personal_goal_km) VALUES (?, ?, ?, ?, ?)'),
-    updateAthlete: db.prepare('UPDATE athletes SET name = ?, phone = ?, bib_number = ?, personal_goal_km = ? WHERE id = ? AND challenge_id = ?'),
+    createAthlete: db.prepare(`
+      INSERT INTO athletes (challenge_id, name, phone, bib_number, birth_date, gender, shirt_size, personal_goal_km)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateAthlete: db.prepare(`
+      UPDATE athletes SET name = ?, phone = ?, bib_number = ?, birth_date = ?, gender = ?, shirt_size = ?, personal_goal_km = ?
+      WHERE id = ? AND challenge_id = ?
+    `),
     deleteAthlete: db.prepare('DELETE FROM athletes WHERE id = ? AND challenge_id = ?'),
 
     challengeOwnerByAthlete: db.prepare(`
@@ -329,21 +337,46 @@ function createServices(db) {
 
   function registerUser(input) {
     const name = requireText(input.name, 'Nome');
-    const email = requireText(input.email, 'E-mail').toLowerCase();
+    const username = requireText(input.username, 'Usuário').toLowerCase().replace(/\s+/g, '_');
+    const email = `${username}@local.challengeapp`;
     const password = requireText(input.password, 'Senha');
     if (password.length < 6) throw new AppError('A senha deve ter pelo menos 6 caracteres.');
+    if (username.length < 3) throw new AppError('Usuário deve ter ao menos 3 caracteres.');
+    if (!/^[a-z0-9._-]+$/.test(username)) throw new AppError('Usuário deve conter apenas letras minúsculas, números, ponto, underline ou hífen.');
+    if (statements.getUserByUsername.get(username)) throw new AppError('Usuário já cadastrado.', 'CONFLICT');
     if (statements.getUserByEmail.get(email)) throw new AppError('E-mail já cadastrado.', 'CONFLICT');
     const hash = bcrypt.hashSync(password, 10);
-    const result = statements.createUser.run(name, email, hash);
+    const result = statements.createUser.run(name, username, email, hash);
     return statements.getUserById.get(result.lastInsertRowid);
   }
 
   function login(input) {
-    const email = requireText(input.email, 'E-mail').toLowerCase();
+    const username = requireText(input.username || input.email, 'Usuário').toLowerCase();
     const password = requireText(input.password, 'Senha');
-    const user = statements.getUserByEmail.get(email);
+    const user = statements.getUserByUsername.get(username) || statements.getUserByEmail.get(username);
     if (!user || !bcrypt.compareSync(password, user.password_hash)) throw new AppError('Credenciais inválidas.', 'UNAUTHORIZED');
     return statements.getUserById.get(user.id);
+  }
+
+  function updateUserProfile(userId, input) {
+    const current = statements.getUserById.get(userId);
+    if (!current) throw new AppError('Usuário não encontrado.', 'FORBIDDEN');
+    const name = requireText(input.name, 'Nome');
+    const username = requireText(input.username, 'Usuário').toLowerCase().replace(/\s+/g, '_');
+    if (username.length < 3) throw new AppError('Usuário deve ter ao menos 3 caracteres.');
+    if (!/^[a-z0-9._-]+$/.test(username)) throw new AppError('Usuário deve conter apenas letras minúsculas, números, ponto, underline ou hífen.');
+    const existing = statements.getUserByUsername.get(username);
+    if (existing && Number(existing.id) !== Number(userId)) throw new AppError('Usuário já em uso.', 'CONFLICT');
+
+    let passwordHash = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(userId).password_hash;
+    if (input.newPassword) {
+      const newPassword = requireText(input.newPassword, 'Nova senha');
+      if (newPassword.length < 6) throw new AppError('Nova senha deve ter pelo menos 6 caracteres.');
+      passwordHash = bcrypt.hashSync(newPassword, 10);
+    }
+
+    statements.updateUserProfile.run(name, username, passwordHash, userId);
+    return statements.getUserById.get(userId);
   }
 
   function listChallenges(userId) {
@@ -393,12 +426,15 @@ function createServices(db) {
     const name = requireText(input.name, 'Nome do atleta');
     const phone = (input.phone || '').trim();
     const bibNumber = (input.bibNumber || '').trim();
+    const birthDate = input.birthDate ? requireDate(input.birthDate, 'Data de nascimento') : null;
+    const gender = (input.gender || '').trim();
+    const shirtSize = (input.shirtSize || '').trim();
     const personalGoalKm = input.personalGoalKm === '' || input.personalGoalKm === null || input.personalGoalKm === undefined ? null : toNumber(input.personalGoalKm, 'Meta individual (km)', 0);
     const enrollmentInput = input.enrollment;
     if (!enrollmentInput) throw new AppError('Dados de inscrição são obrigatórios.');
 
     const trx = db.transaction(() => {
-      const result = statements.createAthlete.run(challengeId, name, phone, bibNumber, personalGoalKm);
+      const result = statements.createAthlete.run(challengeId, name, phone, bibNumber, birthDate, gender, shirtSize, personalGoalKm);
       const athleteId = result.lastInsertRowid;
       upsertEnrollmentForAthlete(athleteId, enrollmentInput);
       return statements.getAthlete.get(athleteId, challengeId);
@@ -413,12 +449,15 @@ function createServices(db) {
     const name = requireText(input.name, 'Nome do atleta');
     const phone = (input.phone || '').trim();
     const bibNumber = (input.bibNumber || '').trim();
+    const birthDate = input.birthDate ? requireDate(input.birthDate, 'Data de nascimento') : null;
+    const gender = (input.gender || '').trim();
+    const shirtSize = (input.shirtSize || '').trim();
     const personalGoalKm = input.personalGoalKm === '' || input.personalGoalKm === null || input.personalGoalKm === undefined ? null : toNumber(input.personalGoalKm, 'Meta individual (km)', 0);
     const enrollmentInput = input.enrollment;
     if (!enrollmentInput) throw new AppError('Dados de inscrição são obrigatórios.');
 
     const trx = db.transaction(() => {
-      statements.updateAthlete.run(name, phone, bibNumber, personalGoalKm, athleteId, challengeId);
+      statements.updateAthlete.run(name, phone, bibNumber, birthDate, gender, shirtSize, personalGoalKm, athleteId, challengeId);
       upsertEnrollmentForAthlete(athleteId, enrollmentInput);
       return statements.getAthlete.get(athleteId, challengeId);
     });
@@ -552,6 +591,7 @@ function createServices(db) {
     AppError,
     registerUser,
     login,
+    updateUserProfile,
     listChallenges,
     createChallenge,
     updateChallenge,
@@ -577,3 +617,4 @@ function createServices(db) {
 }
 
 module.exports = { createServices, AppError };
+

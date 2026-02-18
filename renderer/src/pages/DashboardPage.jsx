@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { FolderOpen, LogOut, Pencil, Plus, Trash2 } from 'lucide-react';
 
 const emptyChallenge = { title: '', description: '', goalKm: '', startDate: '', endDate: '' };
 const nf = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -27,7 +28,13 @@ export function DashboardPage({ user, challenges, loading, error, onOpenChalleng
 
   function startEdit(challenge) {
     setEditId(challenge.id);
-    setForm({ title: challenge.title || '', description: challenge.description || '', goalKm: challenge.goal_km ?? '', startDate: challenge.start_date || '', endDate: challenge.end_date || '' });
+    setForm({
+      title: challenge.title || '',
+      description: challenge.description || '',
+      goalKm: challenge.goal_km ?? '',
+      startDate: challenge.start_date || '',
+      endDate: challenge.end_date || ''
+    });
     setFormError('');
   }
 
@@ -53,7 +60,7 @@ export function DashboardPage({ user, challenges, loading, error, onOpenChalleng
           <h2>Olá, {user.name}</h2>
           <p>Gerencie seus desafios de corrida offline.</p>
         </div>
-        <button className="btn-secondary" onClick={onLogout}>Sair</button>
+        <button className="btn-secondary btn-inline" onClick={onLogout}><LogOut size={15} />Sair</button>
       </header>
 
       <section className="card">
@@ -66,7 +73,7 @@ export function DashboardPage({ user, challenges, loading, error, onOpenChalleng
           <label className="full">Descrição<textarea rows="2" value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} /></label>
           {formError && <div className="error-box full">{formError}</div>}
           <div className="actions full">
-            <button className="btn-primary" disabled={saving} type="submit">{saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Criar desafio'}</button>
+            <button className="btn-primary btn-inline" disabled={saving} type="submit"><Plus size={15} />{saving ? 'Salvando...' : editId ? 'Salvar alterações' : 'Criar desafio'}</button>
             {editId && <button type="button" className="btn-secondary" onClick={() => { setEditId(null); setForm(emptyChallenge); }}>Cancelar edição</button>}
           </div>
         </form>
@@ -87,10 +94,10 @@ export function DashboardPage({ user, challenges, loading, error, onOpenChalleng
                   {formatDate(challenge.start_date)} até {formatDate(challenge.end_date)} | Meta {formatKm(challenge.goal_km)} | Total {formatKm(challenge.total_km)} | Atletas {challenge.athletes_count}
                 </small>
               </div>
-              <div className="actions">
-                <button className="btn-primary" onClick={() => onOpenChallenge(challenge)}>Abrir</button>
-                <button className="btn-secondary" onClick={() => startEdit(challenge)}>Editar</button>
-                <button className="btn-danger" onClick={() => onRemoveChallenge(challenge.id)}>Excluir</button>
+              <div className="icon-actions">
+                <button className="icon-btn" title="Abrir desafio" onClick={() => onOpenChallenge(challenge)}><FolderOpen size={15} /></button>
+                <button className="icon-btn" title="Editar desafio" onClick={() => startEdit(challenge)}><Pencil size={15} /></button>
+                <button className="icon-btn danger" title="Excluir desafio" onClick={() => onRemoveChallenge(challenge.id)}><Trash2 size={15} /></button>
               </div>
             </article>
           ))}

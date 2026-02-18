@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+﻿const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 const { autoUpdater } = require('electron-updater');
@@ -164,6 +164,7 @@ function createAppMenu() {
 function setupIpcHandlers() {
   handle('auth:register', (payload) => ({ user: services.registerUser(payload) }));
   handle('auth:login', (payload) => ({ user: services.login(payload) }));
+  handle('auth:update-profile', ({ userId, profile }) => ({ user: services.updateUserProfile(asUserId(userId), profile || {}) }));
 
   handle('challenges:list', ({ userId }) => ({ challenges: services.listChallenges(asUserId(userId)) }));
   handle('challenges:create', ({ userId, challenge }) => ({ challenge: services.createChallenge(asUserId(userId), challenge || {}) }));
@@ -324,7 +325,8 @@ function createMainWindow() {
   });
 
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
+    const devUrl = process.env.RENDERER_DEV_URL || 'http://localhost:5173';
+    mainWindow.loadURL(devUrl);
   } else {
     const rendererPath = path.join(process.resourcesPath, 'renderer', 'index.html');
     mainWindow.loadFile(rendererPath);
@@ -365,3 +367,5 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason) => {
   logger.error('unhandledRejection', { reason: String(reason) });
 });
+
+
