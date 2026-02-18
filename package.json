@@ -1,0 +1,18 @@
+{
+  "name": "desafio-corrida-desktop",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Gerenciador offline de desafios de corrida",
+  "scripts": {
+    "install:all": "npm install --prefix main && npm install --prefix renderer",
+    "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:main\"",
+    "dev:renderer": "npm run dev --prefix renderer",
+    "dev:main": "wait-on tcp:5173 && npm run dev --prefix main",
+    "build": "npm run build --prefix renderer && npm run build --prefix main",
+    "dist:win": "npm run build --prefix renderer && npm run dist:win --prefix main"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "wait-on": "^8.0.1"
+  }
+}

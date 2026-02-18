@@ -1,0 +1,7 @@
+﻿node_modules
+dist
+*.log
+main/node_modules
+renderer/node_modules
+renderer/dist
+main/dist
