@@ -12,7 +12,7 @@
   },
   "build": {
     "appId": "com.clubepiot.desafios",
-    "productName": "Desafio de Corrida",
+    "productName": "Challenge App",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -38,6 +38,7 @@
       }
     ],
     "win": {
+      "icon": "build/icon.ico",
       "signAndEditExecutable": false,
       "target": [
         "nsis"
@@ -47,7 +48,9 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
     }
   },
   "dependencies": {

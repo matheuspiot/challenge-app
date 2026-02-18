@@ -30,7 +30,7 @@ export function AuthPage({ onAuthSuccess }) {
     <div className="auth-shell">
       <div className="auth-card">
         <div className="auth-brand">
-          <span className="auth-logo" />
+          <img className="auth-logo-image" src="/logo.svg" alt="Logo Challenge App" />
           <div>
             <h1>Challenge App</h1>
             <p>Gerencie atletas, quilômetros e ranking localmente.</p>

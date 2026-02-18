@@ -338,10 +338,12 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
           <nav className="sidebar-menu">
             {tabs.map((t) => {
               const Icon = t.icon;
+              const showPendencyBadge = t.id === 'pendencies' && pendencies.length > 0;
               return (
                 <button key={t.id} className={tab === t.id ? 'side-tab active btn-inline' : 'side-tab btn-inline'} onClick={() => setTab(t.id)} type="button">
                   <Icon size={16} />
-                  {t.label}
+                  <span>{t.label}</span>
+                  {showPendencyBadge ? <span className="side-badge" title={`${pendencies.length} pendência(s)`} /> : null}
                 </button>
               );
             })}

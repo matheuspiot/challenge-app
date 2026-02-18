@@ -16,6 +16,31 @@ let dbCtx = null;
 let services = null;
 let updateStatus = { status: 'idle', message: 'Atualizações não verificadas.', progress: null };
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function loadDevRenderer(windowRef) {
+  const preferred = process.env.RENDERER_DEV_URL;
+  const candidates = [preferred, 'http://localhost:5173', 'http://localhost:5180'].filter(Boolean);
+  const uniqueCandidates = [...new Set(candidates)];
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (const url of uniqueCandidates) {
+      try {
+        await windowRef.loadURL(url);
+        logger.info('Renderer de desenvolvimento carregado', { url });
+        return;
+      } catch (_err) {
+        logger.info('Falha ao carregar renderer de desenvolvimento', { url, attempt: attempt + 1 });
+      }
+    }
+    await sleep(700);
+  }
+
+  throw new Error('Não foi possível conectar ao renderer de desenvolvimento (5173/5180).');
+}
+
 function setUpdateStatus(status, message, progress = null) {
   updateStatus = { status, message, progress };
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -311,7 +336,10 @@ function setupIpcHandlers() {
 }
 
 function createMainWindow() {
+  const devIconPath = path.join(__dirname, '..', 'build', 'icon.png');
   mainWindow = new BrowserWindow({
+    title: 'Challenge App',
+    icon: fs.existsSync(devIconPath) ? devIconPath : undefined,
     width: 1280,
     height: 820,
     minWidth: 1024,
@@ -325,8 +353,9 @@ function createMainWindow() {
   });
 
   if (isDev) {
-    const devUrl = process.env.RENDERER_DEV_URL || 'http://localhost:5173';
-    mainWindow.loadURL(devUrl);
+    loadDevRenderer(mainWindow).catch((error) => {
+      logger.error('Falha ao abrir renderer em desenvolvimento', { message: error.message });
+    });
   } else {
     const rendererPath = path.join(process.resourcesPath, 'renderer', 'index.html');
     mainWindow.loadFile(rendererPath);
