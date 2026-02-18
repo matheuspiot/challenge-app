@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { callApi } from '../api';
 
 export function AuthPage({ onAuthSuccess }) {
@@ -30,7 +30,7 @@ export function AuthPage({ onAuthSuccess }) {
     <div className="auth-shell">
       <div className="auth-card">
         <div className="auth-brand">
-          <img className="auth-logo-image" src="/logo.svg" alt="Logo Challenge App" />
+          <img className="auth-logo-image" src={`${import.meta.env.BASE_URL}logo.svg`} alt="Logo Challenge App" />
           <div>
             <h1>Challenge App</h1>
             <p>Gerencie atletas, quilômetros e ranking localmente.</p>

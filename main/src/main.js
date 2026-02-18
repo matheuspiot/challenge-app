@@ -142,7 +142,7 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('error', (error) => {
-    setUpdateStatus('error', 'Falha ao verificar atualização.');
+    setUpdateStatus('idle', '');
     logger.error('Erro no autoUpdater', { message: error.message, stack: error.stack });
   });
 

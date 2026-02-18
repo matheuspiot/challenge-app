@@ -323,7 +323,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
       <div className="challenge-layout">
         <aside className="challenge-sidebar">
           <div className="sidebar-brand">
-            <span className="brand-logo" />
+            <img className="brand-logo-image" src={`${import.meta.env.BASE_URL}logo.svg`} alt="Logo Challenge App" />
             <strong>CHALLENGE APP</strong>
           </div>
           <div className="sidebar-challenge">
