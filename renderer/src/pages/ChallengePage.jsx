@@ -316,6 +316,34 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
     }
   }
 
+  async function handleBackupDatabase() {
+    setError('');
+    setMessage('');
+    try {
+      const result = await callApi('backupDatabase');
+      if (!result?.canceled) {
+        setMessage('Backup salvo com sucesso.');
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleRestoreDatabase() {
+    setError('');
+    setMessage('');
+    if (!window.confirm('Restaurar backup irá substituir os dados atuais. Deseja continuar?')) return;
+    try {
+      const result = await callApi('restoreDatabase');
+      if (!result?.canceled) {
+        setMessage('Backup restaurado com sucesso.');
+        await reload();
+      }
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   const recentActivities = activities.slice(0, 12);
 
   return (
@@ -615,6 +643,12 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                   <button className="btn-primary" type="submit" disabled={savingAccount}>{savingAccount ? 'Salvando...' : 'Salvar alterações'}</button>
                 </div>
               </form>
+              <hr />
+              <h3>Backup de dados</h3>
+              <div className="actions">
+                <button className="btn-secondary" type="button" onClick={handleBackupDatabase}>Fazer backup</button>
+                <button className="btn-secondary" type="button" onClick={handleRestoreDatabase}>Restaurar backup</button>
+              </div>
             </section>
           )}
         </main>

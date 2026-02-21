@@ -131,15 +131,20 @@ function createServices(db) {
       ORDER BY at.name COLLATE NOCASE ASC, act.date DESC, act.created_at DESC
     `),
 
-    ranking: db.prepare(`
-      SELECT a.id, a.name, a.phone, a.bib_number, a.personal_goal_km, COALESCE(SUM(act.km), 0) AS total_km, MAX(act.date) AS last_activity_date
+    rankingBase: db.prepare(`
+      SELECT a.id, a.name, a.phone, a.bib_number, a.personal_goal_km, a.created_at,
+      COALESCE(SUM(act.km), 0) AS total_km, MAX(act.date) AS last_activity_date
       FROM athletes a
       LEFT JOIN activities act ON act.athlete_id = a.id
       WHERE a.challenge_id = ?
       GROUP BY a.id
-      ORDER BY total_km DESC,
-      CASE WHEN last_activity_date IS NULL THEN 1 ELSE 0 END ASC,
-      last_activity_date ASC, a.created_at ASC
+    `),
+    rankingActivities: db.prepare(`
+      SELECT act.athlete_id, act.date, act.km, act.created_at
+      FROM activities act
+      JOIN athletes a ON a.id = act.athlete_id
+      WHERE a.challenge_id = ?
+      ORDER BY act.date ASC, act.created_at ASC, act.id ASC
     `),
     challengeProgress: db.prepare(`
       SELECT c.id, c.goal_km, COALESCE(SUM(act.km), 0) AS total_km
@@ -522,8 +527,51 @@ function createServices(db) {
   }
 
   function ranking(userId, challengeId) {
-    ensureChallengeOwner(challengeId, userId);
-    return statements.ranking.all(challengeId);
+    const challenge = ensureChallengeOwner(challengeId, userId);
+    const goalKm = Number(challenge.goal_km || 0);
+    const baseRows = statements.rankingBase.all(challengeId).map((row) => ({
+      ...row,
+      total_km: Number(row.total_km || 0),
+      reached_goal_at: null
+    }));
+
+    if (goalKm > 0) {
+      const byAthlete = new Map(baseRows.map((row) => [row.id, row]));
+      const cumulativeByAthlete = new Map();
+      const activityRows = statements.rankingActivities.all(challengeId);
+
+      for (const activity of activityRows) {
+        const athleteId = Number(activity.athlete_id);
+        const row = byAthlete.get(athleteId);
+        if (!row || row.reached_goal_at) continue;
+
+        const prev = cumulativeByAthlete.get(athleteId) || 0;
+        const next = prev + Number(activity.km || 0);
+        cumulativeByAthlete.set(athleteId, next);
+        if (next >= goalKm) {
+          row.reached_goal_at = `${activity.date} ${activity.created_at || ''}`.trim();
+        }
+      }
+    }
+
+    baseRows.sort((a, b) => {
+      if (b.total_km !== a.total_km) return b.total_km - a.total_km;
+
+      const aReached = !!a.reached_goal_at;
+      const bReached = !!b.reached_goal_at;
+      if (aReached && bReached) {
+        if (a.reached_goal_at !== b.reached_goal_at) return a.reached_goal_at < b.reached_goal_at ? -1 : 1;
+      } else if (aReached !== bReached) {
+        return aReached ? -1 : 1;
+      }
+
+      const aLast = a.last_activity_date || '9999-12-31';
+      const bLast = b.last_activity_date || '9999-12-31';
+      if (aLast !== bLast) return aLast < bLast ? -1 : 1;
+      return String(a.created_at || '').localeCompare(String(b.created_at || ''));
+    });
+
+    return baseRows;
   }
 
   function progress(userId, challengeId) {

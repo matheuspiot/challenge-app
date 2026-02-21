@@ -1,6 +1,6 @@
 {
   "name": "desafio-main",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Electron main process",
   "author": "Clube Piot",
   "main": "src/main.js",
