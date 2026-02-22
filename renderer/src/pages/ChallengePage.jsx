@@ -524,7 +524,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                 {selectedAthlete && (
                   <div className="actions">
                     {!selectedAthlete.shirt_delivered_at && (
-                      <button className="btn-primary btn-inline" type="button" onClick={() => openShirtDeliveryModal(selectedAthlete)}>
+                      <button className="btn-primary btn-inline profile-action-btn" type="button" onClick={() => openShirtDeliveryModal(selectedAthlete)}>
                         <PackageCheck size={15} />
                         Entregar camisa
                       </button>
