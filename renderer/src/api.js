@@ -28,6 +28,11 @@ export async function checkForUpdates() {
   return api.checkForUpdates();
 }
 
+export async function installUpdateNow() {
+  const api = ensureApi();
+  return api.installUpdateNow();
+}
+
 export function subscribeUpdateStatus(callback) {
   const api = ensureApi();
   return api.onUpdateStatus(callback);

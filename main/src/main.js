@@ -158,25 +158,8 @@ function setupAutoUpdater() {
     logger.error('Erro no autoUpdater', { message: error.message, stack: error.stack });
   });
 
-  autoUpdater.on('update-downloaded', async () => {
+  autoUpdater.on('update-downloaded', () => {
     setUpdateStatus('ready', 'Atualização pronta.');
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-
-    const result = await dialog.showMessageBox(mainWindow, {
-      type: 'question',
-      buttons: ['Atualizar agora', 'Depois'],
-      defaultId: 0,
-      cancelId: 1,
-      title: 'Atualização disponível',
-      message: 'Nova versão disponível. Deseja reiniciar para atualizar?'
-    });
-
-    if (result.response === 0) {
-      setUpdateStatus('installing', 'Instalando atualização...', 100);
-      setTimeout(() => {
-        autoUpdater.quitAndInstall(true, true);
-      }, 900);
-    }
   });
 }
 
@@ -379,6 +362,16 @@ function setupIpcHandlers() {
 
   handle('updates:get-status', () => updateStatus);
   handle('updates:check-manual', () => triggerManualUpdateCheck(false));
+  handle('updates:install-now', () => {
+    if (updateStatus.status !== 'ready') {
+      throw new AppError('Nenhuma atualização pronta para instalar no momento.');
+    }
+    setUpdateStatus('installing', 'Instalando atualização...', 100);
+    setTimeout(() => {
+      autoUpdater.quitAndInstall(true, true);
+    }, 900);
+    return { started: true };
+  });
   handle('app:get-meta', () => ({ version: app.getVersion(), name: app.getName() }));
 }
 

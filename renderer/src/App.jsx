@@ -1,5 +1,5 @@
 ﻿import { useEffect, useState } from 'react';
-import { callApi, getAppMeta, getUpdateStatus, subscribeUpdateStatus } from './api';
+import { callApi, getAppMeta, getUpdateStatus, installUpdateNow, subscribeUpdateStatus } from './api';
 import { AuthPage } from './pages/AuthPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ChallengePage } from './pages/ChallengePage';
@@ -38,6 +38,7 @@ export default function App() {
   const [error, setError] = useState('');
   const [booting, setBooting] = useState(true);
   const [updateStatus, setUpdateStatus] = useState({ status: 'idle', message: '' });
+  const [hideReadyPrompt, setHideReadyPrompt] = useState(false);
   const [appMeta, setAppMeta] = useState({ version: '-', name: 'Challenge App' });
 
   async function loadChallenges(userId) {
@@ -89,6 +90,9 @@ export default function App() {
     try {
       unsubscribe = subscribeUpdateStatus((status) => {
         setUpdateStatus(status || { status: 'idle', message: '' });
+        if ((status?.status || 'idle') !== 'ready') {
+          setHideReadyPrompt(false);
+        }
       });
     } catch (_err) {
       // ignore
@@ -147,6 +151,20 @@ export default function App() {
     return (
       <>
         <AuthPage onAuthSuccess={onAuthSuccess} initialRemember={rememberLogin} updateStatus={updateStatus} />
+        {updateStatus?.status === 'ready' && !hideReadyPrompt ? (
+          <div className="update-ready-card">
+            <strong>Versão nova disponível</strong>
+            <p>Deseja atualizar agora?</p>
+            <div className="actions">
+              <button className="btn-primary" type="button" onClick={() => installUpdateNow()}>
+                Atualizar agora
+              </button>
+              <button className="btn-secondary" type="button" onClick={() => setHideReadyPrompt(true)}>
+                Depois
+              </button>
+            </div>
+          </div>
+        ) : null}
         <footer className="app-footer">Versao {appMeta.version} | {updateStatus?.message || 'Pronto'}</footer>
       </>
     );
@@ -168,6 +186,20 @@ export default function App() {
 
   return (
     <>
+      {updateStatus?.status === 'ready' && !hideReadyPrompt ? (
+        <div className="update-ready-card">
+          <strong>Versão nova disponível</strong>
+          <p>Deseja atualizar agora?</p>
+          <div className="actions">
+            <button className="btn-primary" type="button" onClick={() => installUpdateNow()}>
+              Atualizar agora
+            </button>
+            <button className="btn-secondary" type="button" onClick={() => setHideReadyPrompt(true)}>
+              Depois
+            </button>
+          </div>
+        </div>
+      ) : null}
       <DashboardPage
         user={user}
         challenges={challenges}
