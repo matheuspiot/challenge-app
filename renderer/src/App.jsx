@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+ï»¿import { useEffect, useState } from 'react';
 import { callApi, getAppMeta, getUpdateStatus, subscribeUpdateStatus } from './api';
 import { AuthPage } from './pages/AuthPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -147,7 +147,7 @@ export default function App() {
     return (
       <>
         <AuthPage onAuthSuccess={onAuthSuccess} initialRemember={rememberLogin} />
-        <footer className="app-footer">Versão {appMeta.version} • {updateStatus?.message || 'Pronto'}</footer>
+        <footer className="app-footer">Versao {appMeta.version} | {updateStatus?.message || 'Pronto'}</footer>
       </>
     );
   }
@@ -181,3 +181,4 @@ export default function App() {
     </>
   );
 }
+
