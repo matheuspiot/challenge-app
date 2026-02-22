@@ -103,7 +103,6 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   const [shirtsDashboard, setShirtsDashboard] = useState(null);
   const [filters, setFilters] = useState({ startDate: '', endDate: '' });
   const [athleteForm, setAthleteForm] = useState(emptyAthlete);
-  const [editAthleteId, setEditAthleteId] = useState(null);
   const [selectedAthleteId, setSelectedAthleteId] = useState(null);
   const [payments, setPayments] = useState(null);
   const [payStatus, setPayStatus] = useState(null);
@@ -115,7 +114,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   const [accountForm, setAccountForm] = useState({ name: user.name || '', username: user.username || '', newPassword: '' });
   const [savingAccount, setSavingAccount] = useState(false);
   const [shirtModal, setShirtModal] = useState({ open: false, athleteId: null, athleteName: '' });
-  const [profileEditModal, setProfileEditModal] = useState({ open: false, saving: false, athleteId: null, form: emptyAthlete });
+  const [profileEdit, setProfileEdit] = useState({ active: false, saving: false, form: emptyAthlete });
 
   const selectedAthlete = useMemo(
     () => athletes.find((a) => Number(a.id) === Number(selectedAthleteId)) || null,
@@ -214,30 +213,12 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
     setProfileSearch('');
   }
 
-  async function handleEditAthlete(athlete) {
-    const payment = await callApi('getAthletePayments', { userId: user.id, athleteId: athlete.id }).catch(() => null);
-    setEditAthleteId(athlete.id);
-    setAthleteForm({
-      name: athlete.name || '',
-      phone: athlete.phone || '',
-      bibNumber: athlete.bib_number || '',
-      birthDate: athlete.birth_date || '',
-      gender: athlete.gender || '',
-      shirtSize: athlete.shirt_size || '',
-      totalAmount: payment ? money.format(Number(payment.enrollment.total_amount_cents || 0) / 100) : '',
-      paymentType: payment?.enrollment?.payment_type || 'cash',
-      installmentsCount: payment?.enrollment?.installments_count || 2,
-      firstDueDate: payment?.enrollment?.first_due_date || new Date().toISOString().slice(0, 10)
-    });
-  }
-
-  async function openProfileEditModal() {
+  async function openProfileInlineEdit() {
     if (!selectedAthlete) return;
     const payment = await callApi('getAthletePayments', { userId: user.id, athleteId: selectedAthlete.id }).catch(() => null);
-    setProfileEditModal({
-      open: true,
+    setProfileEdit({
+      active: true,
       saving: false,
-      athleteId: selectedAthlete.id,
       form: {
         name: selectedAthlete.name || '',
         phone: selectedAthlete.phone || '',
@@ -253,48 +234,48 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
     });
   }
 
-  function closeProfileEditModal() {
-    setProfileEditModal({ open: false, saving: false, athleteId: null, form: emptyAthlete });
+  function closeProfileInlineEdit() {
+    setProfileEdit({ active: false, saving: false, form: emptyAthlete });
   }
 
-  async function saveProfileEdit(e) {
-    e.preventDefault();
-    if (!profileEditModal.athleteId) return;
+  async function saveProfileInlineEdit(e) {
+    e?.preventDefault?.();
+    if (!selectedAthlete) return;
     setError('');
     setMessage('');
-    const amount = parseCurrency(profileEditModal.form.totalAmount);
+    const amount = parseCurrency(profileEdit.form.totalAmount);
     if (!amount) {
       setError('Valor da inscrição inválido.');
       return;
     }
-    setProfileEditModal((prev) => ({ ...prev, saving: true }));
+    setProfileEdit((prev) => ({ ...prev, saving: true }));
     try {
       const payload = {
-        name: profileEditModal.form.name,
-        phone: profileEditModal.form.phone,
-        bibNumber: profileEditModal.form.bibNumber,
-        birthDate: profileEditModal.form.birthDate || null,
-        gender: profileEditModal.form.gender,
-        shirtSize: profileEditModal.form.shirtSize,
+        name: profileEdit.form.name,
+        phone: profileEdit.form.phone,
+        bibNumber: profileEdit.form.bibNumber,
+        birthDate: profileEdit.form.birthDate || null,
+        gender: profileEdit.form.gender,
+        shirtSize: profileEdit.form.shirtSize,
         enrollment: {
           totalAmount: amount.toFixed(2),
-          paymentType: profileEditModal.form.paymentType,
-          installmentsCount: profileEditModal.form.paymentType === 'cash' ? 1 : Number(profileEditModal.form.installmentsCount),
-          firstDueDate: profileEditModal.form.firstDueDate
+          paymentType: profileEdit.form.paymentType,
+          installmentsCount: profileEdit.form.paymentType === 'cash' ? 1 : Number(profileEdit.form.installmentsCount),
+          firstDueDate: profileEdit.form.firstDueDate
         }
       };
       await callApi('updateAthlete', {
         userId: user.id,
         challengeId: challenge.id,
-        athleteId: Number(profileEditModal.athleteId),
+        athleteId: Number(selectedAthlete.id),
         athlete: payload
       });
-      closeProfileEditModal();
+      closeProfileInlineEdit();
       setMessage('Atleta atualizado com sucesso.');
       if (selectedAthleteId) await loadProfile(selectedAthleteId);
       await reload();
     } finally {
-      setProfileEditModal((prev) => ({ ...prev, saving: false }));
+      setProfileEdit((prev) => ({ ...prev, saving: false }));
     }
   }
 
@@ -307,7 +288,6 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   }
 
   function resetAthleteForm() {
-    setEditAthleteId(null);
     setAthleteForm(emptyAthlete);
   }
 
@@ -335,13 +315,8 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
       }
     };
 
-    if (editAthleteId) {
-      await callApi('updateAthlete', { userId: user.id, challengeId: challenge.id, athleteId: editAthleteId, athlete: payload });
-      setMessage('Atleta atualizado com sucesso.');
-    } else {
-      await callApi('createAthlete', { userId: user.id, challengeId: challenge.id, athlete: payload });
-      setMessage('Atleta cadastrado com sucesso.');
-    }
+    await callApi('createAthlete', { userId: user.id, challengeId: challenge.id, athlete: payload });
+    setMessage('Atleta cadastrado com sucesso.');
     resetAthleteForm();
     await reload();
   }
@@ -482,7 +457,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
           {tab === 'athletes' && (
             <section className="card split">
               <div>
-                <h3>{editAthleteId ? 'Editar atleta' : 'Cadastrar atleta'}</h3>
+                <h3>Cadastrar atleta</h3>
                 <form className="stack" onSubmit={saveAthlete}>
                   <label>Nome<input value={athleteForm.name} onChange={(e) => setAthleteForm((p) => ({ ...p, name: e.target.value }))} required /></label>
                   <label>Telefone (opcional)<input value={athleteForm.phone} onChange={(e) => setAthleteForm((p) => ({ ...p, phone: formatPhone(e.target.value) }))} placeholder="(11) 99999-9999" /></label>
@@ -495,8 +470,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                   {athleteForm.paymentType === 'installments' && <label>Quantidade de parcelas<input type="number" min="2" max="12" value={athleteForm.installmentsCount} onChange={(e) => setAthleteForm((p) => ({ ...p, installmentsCount: e.target.value }))} /></label>}
                   <label>Primeiro vencimento<input type="date" value={athleteForm.firstDueDate} onChange={(e) => setAthleteForm((p) => ({ ...p, firstDueDate: e.target.value }))} required /></label>
                   <div className="actions">
-                    <button className="btn-primary btn-inline" type="submit"><CirclePlus size={16} />{editAthleteId ? 'Salvar alterações' : 'Cadastrar'}</button>
-                    {editAthleteId && <button className="btn-secondary" type="button" onClick={resetAthleteForm}>Cancelar edição</button>}
+                    <button className="btn-primary btn-inline" type="submit"><CirclePlus size={16} />Cadastrar</button>
                   </div>
                 </form>
               </div>
@@ -590,10 +564,20 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                 <h3>Atleta</h3>
                 {selectedAthlete && (
                   <div className="actions">
-                    <button className="btn-secondary btn-inline profile-action-btn" type="button" onClick={openProfileEditModal}>
+                    <button className="btn-secondary btn-inline profile-action-btn" type="button" onClick={openProfileInlineEdit} disabled={profileEdit.active}>
                       <Pencil size={15} />
-                      Editar atleta
+                      {profileEdit.active ? 'Editando...' : 'Editar atleta'}
                     </button>
+                    {profileEdit.active && (
+                      <>
+                        <button className="btn-primary btn-inline profile-action-btn" type="button" onClick={saveProfileInlineEdit} disabled={profileEdit.saving}>
+                          {profileEdit.saving ? 'Salvando...' : 'Salvar alterações'}
+                        </button>
+                        <button className="btn-secondary btn-inline profile-action-btn" type="button" onClick={closeProfileInlineEdit} disabled={profileEdit.saving}>
+                          Cancelar edição
+                        </button>
+                      </>
+                    )}
                     {!selectedAthlete.shirt_delivered_at && (
                       <button className="btn-primary btn-inline profile-action-btn" type="button" onClick={() => openShirtDeliveryModal(selectedAthlete)}>
                         <PackageCheck size={15} />
@@ -623,15 +607,52 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
 
               {selectedAthlete && (
                 <>
-                  <div className="profile-personal-grid">
-                    <div className="profile-detail"><small><UserRound size={14} /> Atleta</small><strong>{selectedAthlete.name}</strong></div>
-                    <div className="profile-detail"><small><Phone size={14} /> Telefone</small><strong>{selectedAthlete.phone || '-'}</strong></div>
-                    <div className="profile-detail"><small><CalendarDays size={14} /> Nascimento</small><strong>{asDate(selectedAthlete.birth_date)}</strong></div>
-                    <div className="profile-detail"><small><UserRound size={14} /> Gênero</small><strong>{selectedAthlete.gender || '-'}</strong></div>
-                    <div className="profile-detail"><small><Shirt size={14} /> Camisa</small><strong>{selectedAthlete.shirt_size || '-'}</strong></div>
-                    <div className="profile-detail"><small>Número do peito</small><strong>{selectedAthlete.bib_number || '-'}</strong></div>
-                    <div className="profile-detail"><small><PackageCheck size={14} /> Entrega da camisa</small><strong>{selectedAthlete.shirt_delivered_at ? `Entregue em ${asDate(selectedAthlete.shirt_delivered_at)}` : 'Pendente'}</strong></div>
-                  </div>
+                  {!profileEdit.active ? (
+                    <div className="profile-personal-grid">
+                      <div className="profile-detail"><small><UserRound size={14} /> Atleta</small><strong>{selectedAthlete.name}</strong></div>
+                      <div className="profile-detail"><small><Phone size={14} /> Telefone</small><strong>{selectedAthlete.phone || '-'}</strong></div>
+                      <div className="profile-detail"><small><CalendarDays size={14} /> Nascimento</small><strong>{asDate(selectedAthlete.birth_date)}</strong></div>
+                      <div className="profile-detail"><small><UserRound size={14} /> Gênero</small><strong>{selectedAthlete.gender || '-'}</strong></div>
+                      <div className="profile-detail"><small><Shirt size={14} /> Camisa</small><strong>{selectedAthlete.shirt_size || '-'}</strong></div>
+                      <div className="profile-detail"><small>Número do peito</small><strong>{selectedAthlete.bib_number || '-'}</strong></div>
+                      <div className="profile-detail"><small><PackageCheck size={14} /> Entrega da camisa</small><strong>{selectedAthlete.shirt_delivered_at ? `Entregue em ${asDate(selectedAthlete.shirt_delivered_at)}` : 'Pendente'}</strong></div>
+                    </div>
+                  ) : (
+                    <form className="profile-personal-grid" onSubmit={saveProfileInlineEdit}>
+                      <label className="profile-detail">Nome
+                        <input value={profileEdit.form.name} onChange={(e) => setProfileEdit((p) => ({ ...p, form: { ...p.form, name: e.target.value } }))} required />
+                      </label>
+                      <label className="profile-detail">Telefone (opcional)
+                        <input value={profileEdit.form.phone} onChange={(e) => setProfileEdit((p) => ({ ...p, form: { ...p.form, phone: formatPhone(e.target.value) } }))} placeholder="(11) 99999-9999" />
+                      </label>
+                      <label className="profile-detail">Data de nascimento (opcional)
+                        <input type="date" value={profileEdit.form.birthDate} onChange={(e) => setProfileEdit((p) => ({ ...p, form: { ...p.form, birthDate: e.target.value } }))} />
+                      </label>
+                      <label className="profile-detail">Gênero (opcional)
+                        <select value={profileEdit.form.gender} onChange={(e) => setProfileEdit((p) => ({ ...p, form: { ...p.form, gender: e.target.value } }))}><option value="">Selecione</option><option value="Feminino">Feminino</option><option value="Masculino">Masculino</option><option value="Outro">Outro</option></select>
+                      </label>
+                      <label className="profile-detail">Tamanho da camisa (opcional)
+                        <select value={profileEdit.form.shirtSize} onChange={(e) => setProfileEdit((p) => ({ ...p, form: { ...p.form, shirtSize: e.target.value } }))}><option value="">Selecione</option><option value="PP">PP</option><option value="P">P</option><option value="M">M</option><option value="G">G</option><option value="GG">GG</option><option value="XG">XG</option><option value="M baby look">M baby look</option><option value="G baby look">G baby look</option></select>
+                      </label>
+                      <label className="profile-detail">Número do peito (opcional)
+                        <input value={profileEdit.form.bibNumber} onChange={(e) => setProfileEdit((p) => ({ ...p, form: { ...p.form, bibNumber: e.target.value } }))} />
+                      </label>
+                      <label className="profile-detail">Valor da inscrição (R$)
+                        <input value={profileEdit.form.totalAmount} onChange={(e) => setProfileEdit((p) => ({ ...p, form: { ...p.form, totalAmount: e.target.value } }))} required />
+                      </label>
+                      <label className="profile-detail">Forma de pagamento
+                        <select value={profileEdit.form.paymentType} onChange={(e) => setProfileEdit((p) => ({ ...p, form: { ...p.form, paymentType: e.target.value } }))}><option value="cash">À vista</option><option value="installments">Parcelado</option></select>
+                      </label>
+                      {profileEdit.form.paymentType === 'installments' && (
+                        <label className="profile-detail">Quantidade de parcelas
+                          <input type="number" min="2" max="12" value={profileEdit.form.installmentsCount} onChange={(e) => setProfileEdit((p) => ({ ...p, form: { ...p.form, installmentsCount: e.target.value } }))} />
+                        </label>
+                      )}
+                      <label className="profile-detail">Primeiro vencimento
+                        <input type="date" value={profileEdit.form.firstDueDate} onChange={(e) => setProfileEdit((p) => ({ ...p, form: { ...p.form, firstDueDate: e.target.value } }))} required />
+                      </label>
+                    </form>
+                  )}
 
                   <div className="profile-metrics-grid">
                     <article className="card stat-card"><small>Total KM</small><h2>{asKm(selectedAthlete.total_km, true)}</h2></article>
@@ -829,29 +850,6 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
             </div>
           )}
 
-          {profileEditModal.open && (
-            <div className="modal-overlay">
-              <div className="modal-box">
-                <h3>Editar atleta</h3>
-                <form className="stack" onSubmit={saveProfileEdit}>
-                  <label>Nome<input value={profileEditModal.form.name} onChange={(e) => setProfileEditModal((p) => ({ ...p, form: { ...p.form, name: e.target.value } }))} required /></label>
-                  <label>Telefone (opcional)<input value={profileEditModal.form.phone} onChange={(e) => setProfileEditModal((p) => ({ ...p, form: { ...p.form, phone: formatPhone(e.target.value) } }))} placeholder="(11) 99999-9999" /></label>
-                  <label>Número do peito (opcional)<input value={profileEditModal.form.bibNumber} onChange={(e) => setProfileEditModal((p) => ({ ...p, form: { ...p.form, bibNumber: e.target.value } }))} /></label>
-                  <label>Data de nascimento (opcional)<input type="date" value={profileEditModal.form.birthDate} onChange={(e) => setProfileEditModal((p) => ({ ...p, form: { ...p.form, birthDate: e.target.value } }))} /></label>
-                  <label>Gênero (opcional)<select value={profileEditModal.form.gender} onChange={(e) => setProfileEditModal((p) => ({ ...p, form: { ...p.form, gender: e.target.value } }))}><option value="">Selecione</option><option value="Feminino">Feminino</option><option value="Masculino">Masculino</option><option value="Outro">Outro</option></select></label>
-                  <label>Tamanho da camisa (opcional)<select value={profileEditModal.form.shirtSize} onChange={(e) => setProfileEditModal((p) => ({ ...p, form: { ...p.form, shirtSize: e.target.value } }))}><option value="">Selecione</option><option value="PP">PP</option><option value="P">P</option><option value="M">M</option><option value="G">G</option><option value="GG">GG</option><option value="XG">XG</option><option value="M baby look">M baby look</option><option value="G baby look">G baby look</option></select></label>
-                  <label>Valor da inscrição (R$)<input value={profileEditModal.form.totalAmount} onChange={(e) => setProfileEditModal((p) => ({ ...p, form: { ...p.form, totalAmount: e.target.value } }))} required /></label>
-                  <label>Forma de pagamento<select value={profileEditModal.form.paymentType} onChange={(e) => setProfileEditModal((p) => ({ ...p, form: { ...p.form, paymentType: e.target.value } }))}><option value="cash">À vista</option><option value="installments">Parcelado</option></select></label>
-                  {profileEditModal.form.paymentType === 'installments' && <label>Quantidade de parcelas<input type="number" min="2" max="12" value={profileEditModal.form.installmentsCount} onChange={(e) => setProfileEditModal((p) => ({ ...p, form: { ...p.form, installmentsCount: e.target.value } }))} /></label>}
-                  <label>Primeiro vencimento<input type="date" value={profileEditModal.form.firstDueDate} onChange={(e) => setProfileEditModal((p) => ({ ...p, form: { ...p.form, firstDueDate: e.target.value } }))} required /></label>
-                  <div className="actions">
-                    <button className="btn-primary" type="submit" disabled={profileEditModal.saving}>{profileEditModal.saving ? 'Salvando...' : 'Salvar alterações'}</button>
-                    <button className="btn-secondary" type="button" onClick={closeProfileEditModal}>Cancelar</button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
         </main>
       </div>
     </div>
