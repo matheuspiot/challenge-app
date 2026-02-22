@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "desafio-corrida-desktop",
   "private": true,
   "version": "1.0.11",
@@ -16,4 +16,3 @@
     "wait-on": "^8.0.1"
   }
 }
-
