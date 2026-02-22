@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "desafio-main",
   "version": "1.0.12",
   "description": "Electron main process",
@@ -68,4 +68,3 @@
     "electron-builder": "^25.1.8"
   }
 }
-
