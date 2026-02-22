@@ -69,7 +69,21 @@ export function AuthPage({ onAuthSuccess, initialRemember = null, updateStatus =
           <button className="btn-link" type="button" onClick={() => setMode(mode === 'register' ? 'login' : 'register')}>
             {mode === 'register' ? 'Já tenho conta' : 'Criar nova conta'}
           </button>
-          {updateStatus?.message ? <small className="auth-update-status">{updateStatus.message}</small> : null}
+          {updateStatus?.message ? (
+            <div className="auth-update-panel">
+              <div className="auth-update-head">
+                <small className="auth-update-status">{updateStatus.message}</small>
+                {(updateStatus.status === 'downloading' || updateStatus.status === 'installing') && (
+                  <small className="auth-update-percent">{Math.round(Number(updateStatus.progress || 0))}%</small>
+                )}
+              </div>
+              {(updateStatus.status === 'downloading' || updateStatus.status === 'installing') && (
+                <div className="auth-update-progress">
+                  <span style={{ width: `${Math.max(0, Math.min(100, Number(updateStatus.progress || 0)))}%` }} />
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
