@@ -1,7 +1,7 @@
-{
+﻿{
   "name": "desafio-corrida-desktop",
   "private": true,
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Gerenciador offline de desafios de corrida",
   "scripts": {
     "install:all": "npm install --prefix main && npm install --prefix renderer",
@@ -16,3 +16,4 @@
     "wait-on": "^8.0.1"
   }
 }
+
