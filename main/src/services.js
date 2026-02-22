@@ -107,6 +107,8 @@ function createServices(db) {
       UPDATE athletes SET name = ?, phone = ?, bib_number = ?, birth_date = ?, gender = ?, shirt_size = ?, personal_goal_km = ?
       WHERE id = ? AND challenge_id = ?
     `),
+    markShirtDelivered: db.prepare('UPDATE athletes SET shirt_delivered_at = ? WHERE id = ? AND challenge_id = ?'),
+    clearShirtDelivered: db.prepare('UPDATE athletes SET shirt_delivered_at = NULL WHERE id = ? AND challenge_id = ?'),
     deleteAthlete: db.prepare('DELETE FROM athletes WHERE id = ? AND challenge_id = ?'),
 
     challengeOwnerByAthlete: db.prepare(`
@@ -226,6 +228,13 @@ function createServices(db) {
       AND (? IS NULL OR i.paid_at >= ?)
       AND (? IS NULL OR i.paid_at <= ?)
       ORDER BY i.paid_at DESC
+    `),
+    shirtRowsByChallenge: db.prepare(`
+      SELECT a.id, a.name, a.shirt_size, a.shirt_delivered_at, c.id AS challenge_id, c.title AS challenge_title
+      FROM athletes a
+      JOIN challenges c ON c.id = a.challenge_id
+      WHERE c.user_id = ? AND c.id = ?
+      ORDER BY a.name COLLATE NOCASE ASC
     `)
   };
 
@@ -574,6 +583,19 @@ function createServices(db) {
     return baseRows;
   }
 
+  function markShirtDelivered(userId, athleteId, delivered = true) {
+    const owner = ensureAthleteOwner(athleteId, userId);
+    if (delivered) {
+      const nowIso = dateToLocalIsoToday();
+      const result = statements.markShirtDelivered.run(nowIso, athleteId, owner.challenge_id);
+      if (!result.changes) throw new AppError('Atleta não encontrado.');
+      return { success: true, shirtDeliveredAt: nowIso };
+    }
+    const result = statements.clearShirtDelivered.run(athleteId, owner.challenge_id);
+    if (!result.changes) throw new AppError('Atleta não encontrado.');
+    return { success: true, shirtDeliveredAt: null };
+  }
+
   function progress(userId, challengeId) {
     const row = statements.challengeProgress.get(challengeId, userId);
     if (!row) throw new AppError('Desafio não encontrado ou sem permissão.', 'FORBIDDEN');
@@ -635,6 +657,25 @@ function createServices(db) {
     };
   }
 
+  function shirtsDashboard(userId, challengeId) {
+    ensureChallengeOwner(challengeId, userId);
+    const rows = statements.shirtRowsByChallenge.all(userId, challengeId);
+    const countsBySize = rows.reduce((acc, row) => {
+      const size = String(row.shirt_size || '').trim() || 'Não informado';
+      acc[size] = (acc[size] || 0) + 1;
+      return acc;
+    }, {});
+    const totalAthletes = rows.length;
+    const deliveredCount = rows.filter((row) => !!row.shirt_delivered_at).length;
+    const pendingCount = Math.max(0, totalAthletes - deliveredCount);
+
+    return {
+      totals: { totalAthletes, deliveredCount, pendingCount },
+      countsBySize,
+      rows
+    };
+  }
+
   return {
     AppError,
     registerUser,
@@ -655,6 +696,8 @@ function createServices(db) {
     athletePaymentStatus,
     listPaymentPendencies,
     financeSummary,
+    shirtsDashboard,
+    markShirtDelivered,
     createActivity,
     listActivitiesByChallenge,
     ranking,

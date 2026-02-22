@@ -4,12 +4,39 @@ import { AuthPage } from './pages/AuthPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ChallengePage } from './pages/ChallengePage';
 
+const REMEMBER_LOGIN_KEY = 'challenge_app_remember_login';
+
+function readRememberLogin() {
+  try {
+    const raw = localStorage.getItem(REMEMBER_LOGIN_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.username || !parsed?.password) return null;
+    return { username: parsed.username, password: parsed.password, remember: true };
+  } catch (_err) {
+    return null;
+  }
+}
+
+function persistRememberLogin(value) {
+  if (value?.rememberLogin) {
+    localStorage.setItem(
+      REMEMBER_LOGIN_KEY,
+      JSON.stringify({ username: value.username || '', password: value.password || '' })
+    );
+  } else {
+    localStorage.removeItem(REMEMBER_LOGIN_KEY);
+  }
+}
+
 export default function App() {
+  const [rememberLogin, setRememberLogin] = useState(readRememberLogin());
   const [user, setUser] = useState(null);
   const [challenges, setChallenges] = useState([]);
   const [selectedChallenge, setSelectedChallenge] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [booting, setBooting] = useState(true);
   const [updateStatus, setUpdateStatus] = useState({ status: 'idle', message: '' });
   const [appMeta, setAppMeta] = useState({ version: '-', name: 'Challenge App' });
 
@@ -33,6 +60,25 @@ export default function App() {
   }, [user?.id]);
 
   useEffect(() => {
+    const cached = readRememberLogin();
+    setRememberLogin(cached);
+    if (!cached) {
+      setBooting(false);
+      return;
+    }
+
+    callApi('login', { username: cached.username, password: cached.password })
+      .then((response) => {
+        setUser(response.user || null);
+      })
+      .catch(() => {
+        localStorage.removeItem(REMEMBER_LOGIN_KEY);
+        setRememberLogin(null);
+      })
+      .finally(() => setBooting(false));
+  }, []);
+
+  useEffect(() => {
     let unsubscribe = () => {};
     getAppMeta()
       .then((meta) => setAppMeta(meta || { version: '-', name: 'Challenge App' }))
@@ -50,7 +96,13 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  async function onAuthSuccess(authUser) {
+  async function onAuthSuccess(authUser, authOptions = {}) {
+    persistRememberLogin(authOptions);
+    setRememberLogin(
+      authOptions?.rememberLogin
+        ? { username: authOptions.username, password: authOptions.password, remember: true }
+        : null
+    );
     setUser(authUser);
     setSelectedChallenge(null);
   }
@@ -79,17 +131,23 @@ export default function App() {
   }
 
   async function logout() {
+    localStorage.removeItem(REMEMBER_LOGIN_KEY);
+    setRememberLogin(null);
     setUser(null);
     setChallenges([]);
     setSelectedChallenge(null);
     setError('');
   }
 
+  if (booting) {
+    return null;
+  }
+
   if (!user) {
     return (
       <>
-        <AuthPage onAuthSuccess={onAuthSuccess} />
-        <footer className="app-footer">Vers√£o {appMeta.version} ‚Ä¢ {updateStatus?.message || 'Pronto'}</footer>
+        <AuthPage onAuthSuccess={onAuthSuccess} initialRemember={rememberLogin} />
+        <footer className="app-footer">Vers„o {appMeta.version} ï {updateStatus?.message || 'Pronto'}</footer>
       </>
     );
   }

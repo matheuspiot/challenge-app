@@ -225,6 +225,12 @@ function setupIpcHandlers() {
   handle('payments:finance-summary', ({ userId, filters }) => ({
     summary: services.financeSummary(asUserId(userId), filters || {})
   }));
+  handle('shirts:dashboard', ({ userId, challengeId }) => ({
+    dashboard: services.shirtsDashboard(asUserId(userId), Number(challengeId))
+  }));
+  handle('shirts:mark-delivered', ({ userId, athleteId, delivered }) => (
+    services.markShirtDelivered(asUserId(userId), Number(athleteId), delivered !== false)
+  ));
 
   handle('activities:create', ({ userId, activity }) => ({ activity: services.createActivity(asUserId(userId), activity || {}) }));
   handle('activities:list', ({ userId, challengeId }) => ({ activities: services.listActivitiesByChallenge(asUserId(userId), Number(challengeId)) }));
@@ -310,6 +316,31 @@ function setupIpcHandlers() {
     const result = await dialog.showSaveDialog(mainWindow, {
       title: 'Exportar parcelas vencidas (CSV)',
       defaultPath: `${(fileTitle || 'parcelas_vencidas').replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`,
+      filters: [{ name: 'CSV', extensions: ['csv'] }]
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    fs.writeFileSync(result.filePath, toCsv(headers, rows), 'utf8');
+    return { canceled: false, filePath: result.filePath };
+  });
+
+  handle('export:shirts-csv', async ({ userId, challengeId, fileTitle }) => {
+    const dashboard = services.shirtsDashboard(asUserId(userId), Number(challengeId));
+    const rows = (dashboard.rows || []).map((row) => ({
+      athlete_name: row.name,
+      shirt_size: row.shirt_size || '',
+      delivered: row.shirt_delivered_at ? 'Sim' : 'Não',
+      delivered_at: row.shirt_delivered_at || ''
+    }));
+    const headers = [
+      { key: 'athlete_name', label: 'Atleta' },
+      { key: 'shirt_size', label: 'Tamanho da camisa' },
+      { key: 'delivered', label: 'Entregue' },
+      { key: 'delivered_at', label: 'Data da entrega' }
+    ];
+
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Exportar camisas (CSV)',
+      defaultPath: `${(fileTitle || 'camisas').replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`,
       filters: [{ name: 'CSV', extensions: ['csv'] }]
     });
     if (result.canceled || !result.filePath) return { canceled: true };

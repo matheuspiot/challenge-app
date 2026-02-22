@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   ListChecks,
   Medal,
+  PackageCheck,
   Pencil,
   Phone,
   Settings,
@@ -28,6 +29,7 @@ const tabs = [
   { id: 'profile', label: 'Atleta', icon: UserRound },
   { id: 'pendencies', label: 'Pendências', icon: CircleAlert },
   { id: 'finance', label: 'Finanças', icon: ListChecks },
+  { id: 'shirts', label: 'Camisas', icon: Shirt },
   { id: 'export', label: 'Exportações', icon: FileSpreadsheet },
   { id: 'settings', label: 'Configurações', icon: Settings }
 ];
@@ -98,6 +100,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   const [activities, setActivities] = useState([]);
   const [pendencies, setPendencies] = useState([]);
   const [finance, setFinance] = useState(null);
+  const [shirtsDashboard, setShirtsDashboard] = useState(null);
   const [filters, setFilters] = useState({ startDate: '', endDate: '' });
   const [athleteForm, setAthleteForm] = useState(emptyAthlete);
   const [editAthleteId, setEditAthleteId] = useState(null);
@@ -111,6 +114,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   const [message, setMessage] = useState('');
   const [accountForm, setAccountForm] = useState({ name: user.name || '', username: user.username || '', newPassword: '' });
   const [savingAccount, setSavingAccount] = useState(false);
+  const [shirtModal, setShirtModal] = useState({ open: false, athleteId: null, athleteName: '' });
 
   const selectedAthlete = useMemo(
     () => athletes.find((a) => Number(a.id) === Number(selectedAthleteId)) || null,
@@ -162,18 +166,20 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   }, [challenge.goal_km, selectedAthlete?.total_km]);
 
   async function reload() {
-    const [a, r, ac, pe, fi] = await Promise.all([
+    const [a, r, ac, pe, fi, sh] = await Promise.all([
       callApi('listAthletes', { userId: user.id, challengeId: challenge.id, filter: '' }),
       callApi('getRanking', { userId: user.id, challengeId: challenge.id }),
       callApi('listActivities', { userId: user.id, challengeId: challenge.id }),
       callApi('listPaymentPendencies', { userId: user.id, challengeId: challenge.id }),
-      callApi('getFinanceSummary', { userId: user.id, filters: { challengeId: challenge.id } })
+      callApi('getFinanceSummary', { userId: user.id, filters: { challengeId: challenge.id } }),
+      callApi('getShirtsDashboard', { userId: user.id, challengeId: challenge.id })
     ]);
     setAthletes(a.athletes || []);
     setRanking(r.ranking || []);
     setActivities(ac.activities || []);
     setPendencies(pe.pendencies || []);
     setFinance(fi.summary || null);
+    setShirtsDashboard(sh.dashboard || null);
     onUpdated();
   }
 
@@ -299,6 +305,25 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
     await reload();
   }
 
+  function openShirtDeliveryModal(athlete) {
+    setShirtModal({ open: true, athleteId: athlete.id, athleteName: athlete.name || '' });
+  }
+
+  function closeShirtDeliveryModal() {
+    setShirtModal({ open: false, athleteId: null, athleteName: '' });
+  }
+
+  async function confirmShirtDelivery() {
+    if (!shirtModal.athleteId) return;
+    await callApi('markShirtDelivered', { userId: user.id, athleteId: shirtModal.athleteId, delivered: true });
+    closeShirtDeliveryModal();
+    setMessage('Entrega de camisa registrada com sucesso.');
+    if (selectedAthleteId) {
+      await loadProfile(selectedAthleteId);
+    }
+    await reload();
+  }
+
   async function saveAccount(e) {
     e.preventDefault();
     setError('');
@@ -396,7 +421,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                   <label>Número do peito (opcional)<input value={athleteForm.bibNumber} onChange={(e) => setAthleteForm((p) => ({ ...p, bibNumber: e.target.value }))} /></label>
                   <label>Data de nascimento (opcional)<input type="date" value={athleteForm.birthDate} onChange={(e) => setAthleteForm((p) => ({ ...p, birthDate: e.target.value }))} /></label>
                   <label>Gênero (opcional)<select value={athleteForm.gender} onChange={(e) => setAthleteForm((p) => ({ ...p, gender: e.target.value }))}><option value="">Selecione</option><option value="Feminino">Feminino</option><option value="Masculino">Masculino</option><option value="Outro">Outro</option></select></label>
-                  <label>Tamanho da camisa (opcional)<select value={athleteForm.shirtSize} onChange={(e) => setAthleteForm((p) => ({ ...p, shirtSize: e.target.value }))}><option value="">Selecione</option><option value="PP">PP</option><option value="P">P</option><option value="M">M</option><option value="G">G</option><option value="GG">GG</option><option value="XG">XG</option></select></label>
+                  <label>Tamanho da camisa (opcional)<select value={athleteForm.shirtSize} onChange={(e) => setAthleteForm((p) => ({ ...p, shirtSize: e.target.value }))}><option value="">Selecione</option><option value="PP">PP</option><option value="P">P</option><option value="M">M</option><option value="G">G</option><option value="GG">GG</option><option value="XG">XG</option><option value="M baby look">M baby look</option><option value="G baby look">G baby look</option></select></label>
                   <label>Valor da inscrição (R$)<input value={athleteForm.totalAmount} onChange={(e) => setAthleteForm((p) => ({ ...p, totalAmount: e.target.value }))} onBlur={() => { const parsed = parseCurrency(athleteForm.totalAmount); if (parsed) setAthleteForm((p) => ({ ...p, totalAmount: money.format(parsed) })); }} required /></label>
                   <label>Forma de pagamento<select value={athleteForm.paymentType} onChange={(e) => setAthleteForm((p) => ({ ...p, paymentType: e.target.value }))}><option value="cash">À vista</option><option value="installments">Parcelado</option></select></label>
                   {athleteForm.paymentType === 'installments' && <label>Quantidade de parcelas<input type="number" min="2" max="12" value={athleteForm.installmentsCount} onChange={(e) => setAthleteForm((p) => ({ ...p, installmentsCount: e.target.value }))} /></label>}
@@ -496,7 +521,17 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
             <section className="card profile-tab-card">
               <div className="topbar">
                 <h3>Atleta</h3>
-                {selectedAthlete && <button className="icon-btn" type="button" title="Fechar perfil" onClick={closeProfile}><X size={15} /></button>}
+                {selectedAthlete && (
+                  <div className="actions">
+                    {!selectedAthlete.shirt_delivered_at && (
+                      <button className="btn-primary btn-inline" type="button" onClick={() => openShirtDeliveryModal(selectedAthlete)}>
+                        <PackageCheck size={15} />
+                        Entregar camisa
+                      </button>
+                    )}
+                    <button className="icon-btn" type="button" title="Fechar perfil" onClick={closeProfile}><X size={15} /></button>
+                  </div>
+                )}
               </div>
 
               {!selectedAthlete && (
@@ -524,6 +559,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                     <div className="profile-detail"><small><UserRound size={14} /> Gênero</small><strong>{selectedAthlete.gender || '-'}</strong></div>
                     <div className="profile-detail"><small><Shirt size={14} /> Camisa</small><strong>{selectedAthlete.shirt_size || '-'}</strong></div>
                     <div className="profile-detail"><small>Número do peito</small><strong>{selectedAthlete.bib_number || '-'}</strong></div>
+                    <div className="profile-detail"><small><PackageCheck size={14} /> Entrega da camisa</small><strong>{selectedAthlete.shirt_delivered_at ? `Entregue em ${asDate(selectedAthlete.shirt_delivered_at)}` : 'Pendente'}</strong></div>
                   </div>
 
                   <div className="profile-metrics-grid">
@@ -616,6 +652,63 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
             </section>
           )}
 
+          {tab === 'shirts' && (
+            <section className="card">
+              <div className="topbar">
+                <h3>Camisas</h3>
+                <button
+                  className="btn-secondary btn-inline"
+                  type="button"
+                  onClick={() =>
+                    callApi('exportShirtsCsv', {
+                      userId: user.id,
+                      challengeId: challenge.id,
+                      fileTitle: `${challenge.title}_camisas`
+                    })
+                  }
+                >
+                  <FileSpreadsheet size={14} />
+                  CSV camisas
+                </button>
+              </div>
+
+              <div className="stats-grid">
+                <article className="card stat-card">
+                  <small>Total de atletas</small>
+                  <h2>{shirtsDashboard?.totals?.totalAthletes || 0}</h2>
+                </article>
+                <article className="card stat-card stat-positive">
+                  <small>Camisas entregues</small>
+                  <h2>{shirtsDashboard?.totals?.deliveredCount || 0}</h2>
+                </article>
+                <article className="card stat-card stat-warning">
+                  <small>Camisas pendentes</small>
+                  <h2>{shirtsDashboard?.totals?.pendingCount || 0}</h2>
+                </article>
+              </div>
+
+              <h4>Grade de tamanhos</h4>
+              <div className="table-wrap">
+                <table>
+                  <thead><tr><th>Tamanho</th><th>Quantidade</th></tr></thead>
+                  <tbody>
+                    {Object.entries(shirtsDashboard?.countsBySize || {}).length === 0 && (
+                      <tr><td colSpan="2">Nenhuma camisa cadastrada ainda.</td></tr>
+                    )}
+                    {Object.entries(shirtsDashboard?.countsBySize || {})
+                      .sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'))
+                      .map(([size, count]) => (
+                        <tr key={size}>
+                          <td>{size}</td>
+                          <td>{count}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
           {tab === 'export' && (
             <section className="card">
               <h3>Exportações</h3>
@@ -650,6 +743,19 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                 <button className="btn-secondary" type="button" onClick={handleRestoreDatabase}>Restaurar backup</button>
               </div>
             </section>
+          )}
+
+          {shirtModal.open && (
+            <div className="modal-overlay">
+              <div className="modal-box">
+                <h3>Confirmar entrega</h3>
+                <p>Confirmar entrega da camisa para <strong>{shirtModal.athleteName}</strong>?</p>
+                <div className="actions">
+                  <button className="btn-primary" type="button" onClick={confirmShirtDelivery}>Confirmar</button>
+                  <button className="btn-secondary" type="button" onClick={closeShirtDeliveryModal}>Cancelar</button>
+                </div>
+              </div>
+            </div>
           )}
         </main>
       </div>

@@ -42,6 +42,7 @@ function initializeDatabase(userDataPath) {
       birth_date TEXT,
       gender TEXT,
       shirt_size TEXT,
+      shirt_delivered_at TEXT,
       personal_goal_km REAL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE
@@ -93,6 +94,7 @@ function initializeDatabase(userDataPath) {
   if (!athleteColumns.includes('birth_date')) db.exec('ALTER TABLE athletes ADD COLUMN birth_date TEXT');
   if (!athleteColumns.includes('gender')) db.exec('ALTER TABLE athletes ADD COLUMN gender TEXT');
   if (!athleteColumns.includes('shirt_size')) db.exec('ALTER TABLE athletes ADD COLUMN shirt_size TEXT');
+  if (!athleteColumns.includes('shirt_delivered_at')) db.exec('ALTER TABLE athletes ADD COLUMN shirt_delivered_at TEXT');
 
   const userColumns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
   if (!userColumns.includes('username')) db.exec('ALTER TABLE users ADD COLUMN username TEXT');

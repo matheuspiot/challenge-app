@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld('api', {
   getAthletePaymentStatus: (payload) => ipcRenderer.invoke('payments:athlete-status', payload),
   listPaymentPendencies: (payload) => ipcRenderer.invoke('payments:pendencies', payload),
   getFinanceSummary: (payload) => ipcRenderer.invoke('payments:finance-summary', payload),
+  getShirtsDashboard: (payload) => ipcRenderer.invoke('shirts:dashboard', payload),
+  markShirtDelivered: (payload) => ipcRenderer.invoke('shirts:mark-delivered', payload),
 
   createActivity: (payload) => ipcRenderer.invoke('activities:create', payload),
   listActivities: (payload) => ipcRenderer.invoke('activities:list', payload),
@@ -33,6 +35,7 @@ contextBridge.exposeInMainWorld('api', {
   exportActivitiesCsv: (payload) => ipcRenderer.invoke('export:activities-csv', payload),
   exportFinancePaidCsv: (payload) => ipcRenderer.invoke('export:finance-paid-csv', payload),
   exportFinanceOverdueCsv: (payload) => ipcRenderer.invoke('export:finance-overdue-csv', payload),
+  exportShirtsCsv: (payload) => ipcRenderer.invoke('export:shirts-csv', payload),
 
   backupDatabase: () => ipcRenderer.invoke('backup:create'),
   restoreDatabase: () => ipcRenderer.invoke('backup:restore'),

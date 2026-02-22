@@ -1,11 +1,12 @@
 ﻿import { useState } from 'react';
 import { callApi } from '../api';
 
-export function AuthPage({ onAuthSuccess }) {
+export function AuthPage({ onAuthSuccess, initialRemember = null }) {
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState(initialRemember?.username || '');
+  const [password, setPassword] = useState(initialRemember?.password || '');
+  const [rememberLogin, setRememberLogin] = useState(Boolean(initialRemember?.remember));
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -18,7 +19,7 @@ export function AuthPage({ onAuthSuccess }) {
         mode === 'register'
           ? await callApi('register', { name, username, password })
           : await callApi('login', { username, password });
-      onAuthSuccess(response.user);
+      onAuthSuccess(response.user, { rememberLogin, username, password });
     } catch (err) {
       setError(err.message);
     } finally {
@@ -52,6 +53,12 @@ export function AuthPage({ onAuthSuccess }) {
             Senha
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </label>
+          {mode === 'login' && (
+            <label className="check-row">
+              <input type="checkbox" checked={rememberLogin} onChange={(e) => setRememberLogin(e.target.checked)} />
+              <span>Lembrar login neste computador</span>
+            </label>
+          )}
           {error && <div className="error-box">{error}</div>}
           <button disabled={loading} className="btn-primary" type="submit">
             {loading ? 'Processando...' : mode === 'register' ? 'Criar conta' : 'Entrar'}
