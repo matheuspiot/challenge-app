@@ -1,7 +1,7 @@
 ﻿import { useState } from 'react';
 import { callApi } from '../api';
 
-export function AuthPage({ onAuthSuccess, initialRemember = null }) {
+export function AuthPage({ onAuthSuccess, initialRemember = null, updateStatus = null }) {
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
   const [username, setUsername] = useState(initialRemember?.username || '');
@@ -69,6 +69,7 @@ export function AuthPage({ onAuthSuccess, initialRemember = null }) {
           <button className="btn-link" type="button" onClick={() => setMode(mode === 'register' ? 'login' : 'register')}>
             {mode === 'register' ? 'Já tenho conta' : 'Criar nova conta'}
           </button>
+          {updateStatus?.message ? <small className="auth-update-status">{updateStatus.message}</small> : null}
         </div>
       </div>
     </div>

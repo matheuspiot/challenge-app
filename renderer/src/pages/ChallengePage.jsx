@@ -230,6 +230,12 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
     });
   }
 
+  async function startEditFromProfile() {
+    if (!selectedAthlete) return;
+    await handleEditAthlete(selectedAthlete);
+    setTab('athletes');
+  }
+
   async function handleDeleteAthlete(athlete) {
     if (!window.confirm(`Confirma excluir o atleta "${athlete.name}"?`)) return;
     await callApi('deleteAthlete', { userId: user.id, challengeId: challenge.id, athleteId: athlete.id });
@@ -445,7 +451,6 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                           <td>{a.payment_status?.label || '-'}</td>
                           <td>
                             <div className="icon-actions">
-                              <button className="icon-btn" type="button" title="Editar" onClick={() => handleEditAthlete(a)}><Pencil size={15} /></button>
                               <button className="icon-btn" type="button" title="Perfil" onClick={() => openProfileFromList(a.id)}><Eye size={15} /></button>
                               <button className="icon-btn danger" type="button" title="Remover" onClick={() => handleDeleteAthlete(a)}><Trash2 size={15} /></button>
                             </div>
@@ -523,6 +528,10 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                 <h3>Atleta</h3>
                 {selectedAthlete && (
                   <div className="actions">
+                    <button className="btn-secondary btn-inline profile-action-btn" type="button" onClick={startEditFromProfile}>
+                      <Pencil size={15} />
+                      Editar atleta
+                    </button>
                     {!selectedAthlete.shirt_delivered_at && (
                       <button className="btn-primary btn-inline profile-action-btn" type="button" onClick={() => openShirtDeliveryModal(selectedAthlete)}>
                         <PackageCheck size={15} />

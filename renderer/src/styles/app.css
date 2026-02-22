@@ -48,6 +48,12 @@ body { margin: 0; background: var(--bg); color: var(--text); }
 .auth-brand h1 { margin: 0; font-size: 1.22rem; line-height: 1.2; }
 .auth-brand p { margin: 4px 0 0; }
 .auth-footer-actions { margin-top: 14px; }
+.auth-update-status {
+  display: block;
+  margin-top: 10px;
+  color: #2563eb;
+  font-size: 0.82rem;
+}
 .auth-logo-image {
   width: 56px;
   height: 56px;

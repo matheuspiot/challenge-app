@@ -146,7 +146,7 @@ export default function App() {
   if (!user) {
     return (
       <>
-        <AuthPage onAuthSuccess={onAuthSuccess} initialRemember={rememberLogin} />
+        <AuthPage onAuthSuccess={onAuthSuccess} initialRemember={rememberLogin} updateStatus={updateStatus} />
         <footer className="app-footer">Versao {appMeta.version} | {updateStatus?.message || 'Pronto'}</footer>
       </>
     );

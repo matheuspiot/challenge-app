@@ -172,7 +172,10 @@ function setupAutoUpdater() {
     });
 
     if (result.response === 0) {
-      autoUpdater.quitAndInstall(true, true);
+      setUpdateStatus('installing', 'Instalando atualização...');
+      setTimeout(() => {
+        autoUpdater.quitAndInstall(true, true);
+      }, 500);
     }
   });
 }
