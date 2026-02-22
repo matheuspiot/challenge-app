@@ -172,7 +172,7 @@ function setupAutoUpdater() {
     });
 
     if (result.response === 0) {
-      autoUpdater.quitAndInstall();
+      autoUpdater.quitAndInstall(true, true);
     }
   });
 }

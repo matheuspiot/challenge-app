@@ -1,6 +1,6 @@
-{
+﻿{
   "name": "desafio-main",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Electron main process",
   "author": "Clube Piot",
   "main": "src/main.js",
@@ -49,8 +49,8 @@
       ]
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": false,
       "createStartMenuShortcut": false,
       "include": "build/installer.nsh",
@@ -68,3 +68,4 @@
     "electron-builder": "^25.1.8"
   }
 }
+
