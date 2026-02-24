@@ -109,6 +109,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   const [registerSearch, setRegisterSearch] = useState('');
   const [profileSearch, setProfileSearch] = useState('');
   const [activity, setActivity] = useState({ athleteId: '', date: new Date().toISOString().slice(0, 10), km: '', note: '' });
+  const [manualPayment, setManualPayment] = useState({ amount: '', paidOn: new Date().toISOString().slice(0, 10), note: '' });
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [accountForm, setAccountForm] = useState({ name: user.name || '', username: user.username || '', newPassword: '' });
@@ -344,6 +345,31 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
 
   async function reopenInstallment(installmentId) {
     await callApi('markInstallmentOpen', { userId: user.id, installmentId, payment: {} });
+    if (selectedAthleteId) await loadProfile(selectedAthleteId);
+    await reload();
+  }
+
+  async function submitManualPayment(e) {
+    e.preventDefault();
+    if (!selectedAthleteId) return;
+    const parsedAmount = parseCurrency(manualPayment.amount);
+    if (!parsedAmount) {
+      setError('Informe um valor de pagamento válido.');
+      return;
+    }
+    setError('');
+    setMessage('');
+    await callApi('addPayment', {
+      userId: user.id,
+      athleteId: Number(selectedAthleteId),
+      payment: {
+        amount: parsedAmount.toFixed(2),
+        paidOn: manualPayment.paidOn,
+        note: manualPayment.note
+      }
+    });
+    setMessage('Pagamento lançado com abatimento automático.');
+    setManualPayment({ amount: '', paidOn: new Date().toISOString().slice(0, 10), note: '' });
     if (selectedAthleteId) await loadProfile(selectedAthleteId);
     await reload();
   }
@@ -686,12 +712,44 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                     <article className="card">
                       <h4>Pagamentos</h4>
                       {!payments ? <p className="muted">Sem dados de pagamento.</p> : (
-                        <div className="table-wrap">
-                          <table>
-                            <thead><tr><th>#</th><th>Vencimento</th><th>Status</th><th>Pagamento</th><th>Ação</th></tr></thead>
-                            <tbody>{payments.installments.map((i) => <tr key={i.id}><td>{i.installment_number}</td><td>{asDate(i.due_date)}</td><td>{i.statusLabel}</td><td>{asDate(i.paid_at)}</td><td>{i.paid_at ? <button className="btn-secondary" onClick={() => reopenInstallment(i.id)} type="button">Reabrir</button> : <button className="btn-primary" onClick={() => payInstallment(i.id)} type="button">Marcar pago</button>}</td></tr>)}</tbody>
-                          </table>
-                        </div>
+                        <>
+                          <form className="stack" onSubmit={submitManualPayment}>
+                            <label>Adicionar pagamento (R$)
+                              <input value={manualPayment.amount} onChange={(e) => setManualPayment((p) => ({ ...p, amount: e.target.value }))} placeholder="Ex: 100,00" required />
+                            </label>
+                            <label>Data do pagamento
+                              <input type="date" value={manualPayment.paidOn} onChange={(e) => setManualPayment((p) => ({ ...p, paidOn: e.target.value }))} required />
+                            </label>
+                            <label>Observação (opcional)
+                              <input value={manualPayment.note} onChange={(e) => setManualPayment((p) => ({ ...p, note: e.target.value }))} />
+                            </label>
+                            <div className="actions">
+                              <button className="btn-primary" type="submit">Adicionar e abater</button>
+                            </div>
+                          </form>
+                          <div className="table-wrap">
+                            <table>
+                              <thead><tr><th>#</th><th>Vencimento</th><th>Status</th><th>Pago</th><th>Saldo</th><th>Ação</th></tr></thead>
+                              <tbody>{payments.installments.map((i) => <tr key={i.id}><td>{i.installment_number}</td><td>{asDate(i.due_date)}</td><td>{i.statusLabel}</td><td>{asMoney(i.paid_cents || 0)}</td><td>{asMoney(i.open_cents || 0)}</td><td>{Number(i.open_cents || 0) === 0 ? <button className="btn-secondary" onClick={() => reopenInstallment(i.id)} type="button">Reabrir</button> : <button className="btn-primary" onClick={() => payInstallment(i.id)} type="button">Quitar</button>}</td></tr>)}</tbody>
+                            </table>
+                          </div>
+                          <h4>Histórico de pagamentos</h4>
+                          <div className="table-wrap">
+                            <table>
+                              <thead><tr><th>Data</th><th>Parcela</th><th>Valor</th><th>Observação</th></tr></thead>
+                              <tbody>
+                                {(payments.paymentEntries || []).map((p) => (
+                                  <tr key={p.id}>
+                                    <td>{asDate(p.paid_on)}</td>
+                                    <td>{p.installment_number}</td>
+                                    <td>{asMoney(p.amount_cents)}</td>
+                                    <td>{p.note || '-'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
                       )}
                     </article>
                   </div>

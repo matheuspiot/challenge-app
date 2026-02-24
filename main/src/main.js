@@ -202,6 +202,7 @@ function setupIpcHandlers() {
   handle('athletes:delete', ({ userId, challengeId, athleteId }) => services.deleteAthlete(asUserId(userId), Number(challengeId), Number(athleteId)));
   handle('payments:save-plan', ({ userId, athleteId, enrollment }) => services.saveEnrollmentPlan(asUserId(userId), Number(athleteId), enrollment || {}));
   handle('payments:get-athlete', ({ userId, athleteId }) => services.getAthletePayments(asUserId(userId), Number(athleteId)));
+  handle('payments:add', ({ userId, athleteId, payment }) => services.addAthletePayment(asUserId(userId), Number(athleteId), payment || {}));
   handle('payments:mark-paid', ({ userId, installmentId, payment }) => services.setInstallmentPaid(asUserId(userId), Number(installmentId), payment || {}));
   handle('payments:mark-open', ({ userId, installmentId, payment }) => services.setInstallmentOpen(asUserId(userId), Number(installmentId), payment || {}));
   handle('payments:athlete-status', ({ userId, athleteId }) => ({ paymentStatus: services.athletePaymentStatus(asUserId(userId), Number(athleteId)) }));

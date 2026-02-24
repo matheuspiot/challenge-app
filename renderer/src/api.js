@@ -47,3 +47,8 @@ export async function getAthletePayments(payload) {
   const api = ensureApi();
   return api.getAthletePayments(payload);
 }
+
+export async function addPayment(payload) {
+  const api = ensureApi();
+  return api.addPayment(payload);
+}

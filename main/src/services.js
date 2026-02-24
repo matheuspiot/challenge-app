@@ -166,12 +166,16 @@ function createServices(db) {
       VALUES (?, ?, ?, ?, NULL, '', CURRENT_TIMESTAMP)
     `),
     listInstallmentsByAthlete: db.prepare(`
-      SELECT i.*, e.total_amount_cents, e.payment_type, e.installments_count, e.first_due_date
+      SELECT i.*, e.total_amount_cents, e.payment_type, e.installments_count, e.first_due_date,
+      COALESCE(SUM(ip.amount_cents), 0) AS paid_cents,
+      MAX(ip.paid_on) AS last_payment_date
       FROM installments i
       JOIN enrollments e ON e.id = i.enrollment_id
       JOIN athletes a ON a.id = e.athlete_id
       JOIN challenges c ON c.id = a.challenge_id
+      LEFT JOIN installment_payments ip ON ip.installment_id = i.id
       WHERE a.id = ? AND c.user_id = ?
+      GROUP BY i.id
       ORDER BY i.installment_number ASC
     `),
     getInstallmentWithOwnership: db.prepare(`
@@ -182,37 +186,61 @@ function createServices(db) {
       JOIN challenges c ON c.id = a.challenge_id
       WHERE i.id = ?
     `),
-    markInstallmentPaid: db.prepare('UPDATE installments SET paid_at = ?, note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
-    clearInstallmentPaid: db.prepare('UPDATE installments SET paid_at = NULL, note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
-
-    overdueInstallmentsByAthlete: db.prepare(`
-      SELECT i.id, i.installment_number, i.due_date, i.amount_cents
-      FROM installments i
-      JOIN enrollments e ON e.id = i.enrollment_id
-      WHERE e.athlete_id = ? AND i.paid_at IS NULL AND i.due_date < ?
-      ORDER BY i.due_date ASC
-    `),
-    listPendencies: db.prepare(`
-      SELECT a.id AS athlete_id, a.name AS athlete_name, c.id AS challenge_id, c.title AS challenge_title,
-      i.id AS installment_id, i.installment_number, i.due_date, i.amount_cents
+    getInstallmentBalanceById: db.prepare(`
+      SELECT i.*, e.athlete_id, a.challenge_id, c.user_id, COALESCE(SUM(ip.amount_cents), 0) AS paid_cents
       FROM installments i
       JOIN enrollments e ON e.id = i.enrollment_id
       JOIN athletes a ON a.id = e.athlete_id
       JOIN challenges c ON c.id = a.challenge_id
-      WHERE c.user_id = ? AND (? IS NULL OR c.id = ?) AND i.paid_at IS NULL AND i.due_date < ?
+      LEFT JOIN installment_payments ip ON ip.installment_id = i.id
+      WHERE i.id = ?
+      GROUP BY i.id
+    `),
+    markInstallmentPaid: db.prepare('UPDATE installments SET paid_at = ?, note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
+    clearInstallmentPaid: db.prepare('UPDATE installments SET paid_at = NULL, note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'),
+    insertInstallmentPayment: db.prepare(`
+      INSERT INTO installment_payments (installment_id, paid_on, amount_cents, note)
+      VALUES (?, ?, ?, ?)
+    `),
+    deleteInstallmentPayments: db.prepare('DELETE FROM installment_payments WHERE installment_id = ?'),
+    listInstallmentPaymentsByAthlete: db.prepare(`
+      SELECT ip.id, ip.installment_id, ip.paid_on, ip.amount_cents, ip.note, i.installment_number
+      FROM installment_payments ip
+      JOIN installments i ON i.id = ip.installment_id
+      JOIN enrollments e ON e.id = i.enrollment_id
+      JOIN athletes a ON a.id = e.athlete_id
+      JOIN challenges c ON c.id = a.challenge_id
+      WHERE a.id = ? AND c.user_id = ?
+      ORDER BY ip.paid_on DESC, ip.id DESC
+    `),
+
+    listPendencies: db.prepare(`
+      SELECT a.id AS athlete_id, a.name AS athlete_name, c.id AS challenge_id, c.title AS challenge_title,
+      i.id AS installment_id, i.installment_number, i.due_date, i.amount_cents,
+      COALESCE(SUM(ip.amount_cents), 0) AS paid_cents
+      FROM installments i
+      JOIN enrollments e ON e.id = i.enrollment_id
+      JOIN athletes a ON a.id = e.athlete_id
+      JOIN challenges c ON c.id = a.challenge_id
+      LEFT JOIN installment_payments ip ON ip.installment_id = i.id
+      WHERE c.user_id = ? AND (? IS NULL OR c.id = ?) AND i.due_date < ?
+      GROUP BY i.id
       ORDER BY i.due_date ASC, a.name COLLATE NOCASE ASC
     `),
     financeInstallmentsByFilter: db.prepare(`
       SELECT i.id, i.installment_number, i.due_date, i.amount_cents, i.paid_at, i.note,
+      COALESCE(SUM(ip.amount_cents), 0) AS paid_cents,
       a.id AS athlete_id, a.name AS athlete_name, c.id AS challenge_id, c.title AS challenge_title
       FROM installments i
       JOIN enrollments e ON e.id = i.enrollment_id
       JOIN athletes a ON a.id = e.athlete_id
       JOIN challenges c ON c.id = a.challenge_id
+      LEFT JOIN installment_payments ip ON ip.installment_id = i.id
       WHERE c.user_id = ?
       AND (? IS NULL OR c.id = ?)
       AND (? IS NULL OR i.due_date >= ?)
       AND (? IS NULL OR i.due_date <= ?)
+      GROUP BY i.id
       ORDER BY i.due_date ASC, a.name COLLATE NOCASE ASC
     `),
     paidInstallmentsByFilter: db.prepare(`
@@ -287,19 +315,33 @@ function createServices(db) {
     return statements.getEnrollmentByAthlete.get(athleteId);
   }
 
+  function effectivePaidCents(row) {
+    const amount = Number(row.amount_cents || 0);
+    const paidFromEntries = Number(row.paid_cents || 0);
+    if (row.paid_at && paidFromEntries < amount) return amount;
+    return Math.min(amount, Math.max(0, paidFromEntries));
+  }
+
   function computeInstallmentStatus(row, todayIso) {
-    if (row.paid_at) return { code: 'PAGO', label: 'Pago', overdueDays: 0, blocked: false };
-    if (todayIso <= row.due_date) return { code: 'EM_ABERTO', label: 'Em aberto', overdueDays: 0, blocked: false };
+    const amount = Number(row.amount_cents || 0);
+    const paid = effectivePaidCents(row);
+    const open = Math.max(0, amount - paid);
+    if (open <= 0) return { code: 'PAGO', label: 'Pago', overdueDays: 0, blocked: false, openCents: 0, paidCents: paid };
+    if (todayIso <= row.due_date) {
+      if (paid > 0) return { code: 'PARCIAL', label: 'Parcial', overdueDays: 0, blocked: false, openCents: open, paidCents: paid };
+      return { code: 'EM_ABERTO', label: 'Em aberto', overdueDays: 0, blocked: false, openCents: open, paidCents: paid };
+    }
     const overdueDays = daysBetween(row.due_date, todayIso);
-    if (overdueDays > 10) return { code: 'BLOQUEADO', label: 'Bloqueado', overdueDays, blocked: true };
-    if (overdueDays > 1) return { code: 'VENCIDO_X_DIAS', label: `Vencido há ${overdueDays} dias`, overdueDays, blocked: false };
-    return { code: 'VENCIDO', label: 'Vencido', overdueDays, blocked: false };
+    if (overdueDays > 10) return { code: 'BLOQUEADO', label: 'Bloqueado', overdueDays, blocked: true, openCents: open, paidCents: paid };
+    if (overdueDays > 1) return { code: 'VENCIDO_X_DIAS', label: `Vencido há ${overdueDays} dias`, overdueDays, blocked: false, openCents: open, paidCents: paid };
+    return { code: 'VENCIDO', label: 'Vencido', overdueDays, blocked: false, openCents: open, paidCents: paid };
   }
 
   function athletePaymentStatus(userId, athleteId) {
     ensureAthleteOwner(athleteId, userId);
     const todayIso = dateToLocalIsoToday();
-    const overdueRows = statements.overdueInstallmentsByAthlete.all(athleteId, todayIso);
+    const installments = listInstallments(userId, athleteId);
+    const overdueRows = installments.filter((row) => row.open_cents > 0 && row.due_date < todayIso);
     if (overdueRows.length === 0) {
       return {
         statusCode: 'EM_DIA',
@@ -341,6 +383,8 @@ function createServices(db) {
       const status = computeInstallmentStatus(row, todayIso);
       return {
         ...row,
+        paid_cents: status.paidCents,
+        open_cents: status.openCents,
         statusCode: status.code,
         statusLabel: status.label,
         overdueDays: status.overdueDays,
@@ -497,15 +541,63 @@ function createServices(db) {
     const enrollment = statements.getEnrollmentByAthlete.get(athleteId);
     if (!enrollment) throw new AppError('Atleta sem inscrição financeira cadastrada.');
     const installments = listInstallments(userId, athleteId);
+    const paymentEntries = statements.listInstallmentPaymentsByAthlete.all(athleteId, userId);
     const status = athletePaymentStatus(userId, athleteId);
-    return { enrollment, installments, paymentStatus: status, challengeId: owner.challenge_id };
+    return { enrollment, installments, paymentEntries, paymentStatus: status, challengeId: owner.challenge_id };
+  }
+
+  function addAthletePayment(userId, athleteId, input) {
+    ensureAthleteOwner(athleteId, userId);
+    const paidOn = input.paidOn ? requireDate(input.paidOn, 'Data de pagamento') : dateToLocalIsoToday();
+    const amount = toNumber(input.amount, 'Valor do pagamento', 0.01);
+    const note = (input.note || '').trim();
+    const totalCents = Math.round(amount * 100);
+    const installments = listInstallments(userId, athleteId);
+    const openInstallments = installments
+      .filter((row) => Number(row.open_cents || 0) > 0)
+      .sort((a, b) => (a.due_date === b.due_date ? a.installment_number - b.installment_number : (a.due_date < b.due_date ? -1 : 1)));
+    const totalOpenCents = openInstallments.reduce((sum, row) => sum + Number(row.open_cents || 0), 0);
+    if (totalOpenCents <= 0) throw new AppError('Não há saldo em aberto para este atleta.');
+    if (totalCents > totalOpenCents) throw new AppError('Valor maior que o saldo devedor atual.');
+
+    const allocations = [];
+    let remaining = totalCents;
+    const trx = db.transaction(() => {
+      for (const installment of openInstallments) {
+        if (remaining <= 0) break;
+        const open = Number(installment.open_cents || 0);
+        if (open <= 0) continue;
+        const applied = Math.min(remaining, open);
+        statements.insertInstallmentPayment.run(installment.id, paidOn, applied, note);
+        remaining -= applied;
+        allocations.push({ installmentId: installment.id, installmentNumber: installment.installment_number, appliedCents: applied });
+      }
+
+      for (const alloc of allocations) {
+        const row = statements.getInstallmentBalanceById.get(alloc.installmentId);
+        const paid = effectivePaidCents(row);
+        const open = Math.max(0, Number(row.amount_cents || 0) - paid);
+        if (open <= 0) {
+          statements.markInstallmentPaid.run(paidOn, note, alloc.installmentId);
+        } else {
+          statements.clearInstallmentPaid.run(note, alloc.installmentId);
+        }
+      }
+    });
+    trx();
+    return { success: true, paidOn, totalCents, allocations };
   }
 
   function setInstallmentPaid(userId, installmentId, input) {
-    const row = statements.getInstallmentWithOwnership.get(Number(installmentId));
+    const row = statements.getInstallmentBalanceById.get(Number(installmentId));
     if (!row || row.user_id !== userId) throw new AppError('Parcela não encontrada ou sem permissão.', 'FORBIDDEN');
     const paidAt = input.paidAt ? requireDate(input.paidAt, 'Data de pagamento') : dateToLocalIsoToday();
     const note = (input.note || '').trim();
+    const paid = effectivePaidCents(row);
+    const open = Math.max(0, Number(row.amount_cents || 0) - paid);
+    if (open > 0) {
+      statements.insertInstallmentPayment.run(Number(installmentId), paidAt, open, note);
+    }
     statements.markInstallmentPaid.run(paidAt, note, Number(installmentId));
     return { success: true };
   }
@@ -514,6 +606,7 @@ function createServices(db) {
     const row = statements.getInstallmentWithOwnership.get(Number(installmentId));
     if (!row || row.user_id !== userId) throw new AppError('Parcela não encontrada ou sem permissão.', 'FORBIDDEN');
     const note = (input.note || '').trim();
+    statements.deleteInstallmentPayments.run(Number(installmentId));
     statements.clearInstallmentPaid.run(note, Number(installmentId));
     return { success: true };
   }
@@ -612,16 +705,23 @@ function createServices(db) {
   function listPaymentPendencies(userId, challengeId = null) {
     const todayIso = dateToLocalIsoToday();
     const rows = statements.listPendencies.all(userId, challengeId, challengeId, todayIso);
-    return rows.map((row) => {
+    return rows
+      .map((row) => {
+      const amount = Number(row.amount_cents || 0);
+      const paid = row.paid_at ? amount : Math.min(amount, Number(row.paid_cents || 0));
+      const open = Math.max(0, amount - paid);
+      if (open <= 0) return null;
       const overdueDays = daysBetween(row.due_date, todayIso);
       const blocked = overdueDays > 10;
       return {
         ...row,
+        open_cents: open,
         overdueDays,
         severity: blocked ? 'blocked' : 'warning',
         statusLabel: blocked ? `Bloqueado (${overdueDays} dias)` : `Vencido há ${overdueDays} dias`
       };
-    });
+    })
+      .filter(Boolean);
   }
 
   function financeSummary(userId, input = {}) {
@@ -632,12 +732,19 @@ function createServices(db) {
     const installments = statements.financeInstallmentsByFilter.all(userId, challengeId, challengeId, startDate, startDate, endDate, endDate);
     const paidList = statements.paidInstallmentsByFilter.all(userId, challengeId, challengeId, startDate, startDate, endDate, endDate);
 
-    const totalExpectedCents = installments.reduce((sum, row) => sum + Number(row.amount_cents || 0), 0);
-    const totalReceivedCents = installments.reduce((sum, row) => sum + (row.paid_at ? Number(row.amount_cents || 0) : 0), 0);
+    const normalized = installments.map((row) => {
+      const amount = Number(row.amount_cents || 0);
+      const paid = row.paid_at ? amount : Math.min(amount, Number(row.paid_cents || 0));
+      const open = Math.max(0, amount - paid);
+      return { ...row, paid_cents: paid, open_cents: open };
+    });
+
+    const totalExpectedCents = normalized.reduce((sum, row) => sum + Number(row.amount_cents || 0), 0);
+    const totalReceivedCents = normalized.reduce((sum, row) => sum + Number(row.paid_cents || 0), 0);
     const totalOpenCents = totalExpectedCents - totalReceivedCents;
 
-    const overdueUnpaid = installments.filter((row) => !row.paid_at && row.due_date < todayIso);
-    const delinquentValueCents = overdueUnpaid.reduce((sum, row) => sum + Number(row.amount_cents || 0), 0);
+    const overdueUnpaid = normalized.filter((row) => row.open_cents > 0 && row.due_date < todayIso);
+    const delinquentValueCents = overdueUnpaid.reduce((sum, row) => sum + Number(row.open_cents || 0), 0);
     const delinquentAthletesCount = new Set(overdueUnpaid.map((row) => row.athlete_id)).size;
 
     return {
@@ -691,6 +798,7 @@ function createServices(db) {
     deleteAthlete,
     saveEnrollmentPlan,
     getAthletePayments,
+    addAthletePayment,
     setInstallmentPaid,
     setInstallmentOpen,
     athletePaymentStatus,

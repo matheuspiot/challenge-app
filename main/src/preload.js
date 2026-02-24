@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('api', {
 
   savePaymentPlan: (payload) => ipcRenderer.invoke('payments:save-plan', payload),
   getAthletePayments: (payload) => ipcRenderer.invoke('payments:get-athlete', payload),
+  addPayment: (payload) => ipcRenderer.invoke('payments:add', payload),
   markInstallmentPaid: (payload) => ipcRenderer.invoke('payments:mark-paid', payload),
   markInstallmentOpen: (payload) => ipcRenderer.invoke('payments:mark-open', payload),
   getAthletePaymentStatus: (payload) => ipcRenderer.invoke('payments:athlete-status', payload),

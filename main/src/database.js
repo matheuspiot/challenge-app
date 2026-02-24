@@ -82,12 +82,23 @@ function initializeDatabase(userDataPath) {
       FOREIGN KEY (enrollment_id) REFERENCES enrollments(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS installment_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      installment_id INTEGER NOT NULL,
+      paid_on TEXT NOT NULL,
+      amount_cents INTEGER NOT NULL,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (installment_id) REFERENCES installments(id) ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS idx_challenges_user_id ON challenges(user_id);
     CREATE INDEX IF NOT EXISTS idx_athletes_challenge_id ON athletes(challenge_id);
     CREATE INDEX IF NOT EXISTS idx_activities_athlete_id ON activities(athlete_id);
     CREATE INDEX IF NOT EXISTS idx_enrollments_athlete_id ON enrollments(athlete_id);
     CREATE INDEX IF NOT EXISTS idx_installments_enrollment_id ON installments(enrollment_id);
     CREATE INDEX IF NOT EXISTS idx_installments_due_date ON installments(due_date);
+    CREATE INDEX IF NOT EXISTS idx_installment_payments_installment_id ON installment_payments(installment_id);
   `);
 
   const athleteColumns = db.prepare('PRAGMA table_info(athletes)').all().map((c) => c.name);
