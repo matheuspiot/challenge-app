@@ -346,6 +346,9 @@ function createServices(db) {
     const totalInstallments = installments.length;
     const totalOpenCents = installments.reduce((sum, row) => sum + Number(row.open_cents || 0), 0);
     const openInstallmentsCount = installments.filter((row) => Number(row.open_cents || 0) > 0).length;
+    const paidInstallmentsCount = installments.filter((row) => Number(row.open_cents || 0) <= 0).length;
+    const currentInstallment = totalInstallments > 0 ? Math.min(totalInstallments, paidInstallmentsCount + 1) : 0;
+    const installmentProgressLabel = totalInstallments > 0 ? `Parcela ${currentInstallment}/${totalInstallments}` : 'Parcelado';
     const overdueRows = installments.filter((row) => row.open_cents > 0 && row.due_date < todayIso);
     if (totalOpenCents <= 0) {
       return {
@@ -363,7 +366,7 @@ function createServices(db) {
       const isInstallments = totalInstallments > 1;
       return {
         statusCode: isInstallments ? 'PARCELADO' : 'EM_DIA',
-        label: isInstallments ? `Parcelado (${openInstallmentsCount}x)` : 'Em dia',
+        label: isInstallments ? installmentProgressLabel : 'Em dia',
         blocked: false,
         maxOverdueDays: 0,
         blockReason: null,
@@ -376,7 +379,7 @@ function createServices(db) {
     if (maxOverdue > 10) {
       return {
         statusCode: 'BLOQUEADO',
-        label: 'Bloqueado por inadimplência',
+        label: totalInstallments > 1 ? `Bloqueado • ${installmentProgressLabel}` : 'Bloqueado por inadimplência',
         blocked: true,
         maxOverdueDays: maxOverdue,
         blockReason: `Existe parcela vencida há ${maxOverdue} dias (acima da tolerância de 10 dias).`,
@@ -387,7 +390,7 @@ function createServices(db) {
     }
     return {
       statusCode: 'ATRASO_TOLERANCIA',
-      label: `Atrasado ${maxOverdue} dia(s)`,
+      label: totalInstallments > 1 ? `Atrasado ${maxOverdue} dia(s) • ${installmentProgressLabel}` : `Atrasado ${maxOverdue} dia(s)`,
       blocked: false,
       maxOverdueDays: maxOverdue,
       blockReason: null,

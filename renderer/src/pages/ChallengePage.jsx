@@ -178,6 +178,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
     () => (payments?.installments || []).reduce((sum, row) => sum + Number(row.open_cents || 0), 0),
     [payments]
   );
+  const financialStatusCode = payments?.paymentStatus?.statusCode || selectedAthlete?.payment_status?.statusCode || '';
 
   async function reload() {
     const [a, r, ac, pe, fi, sh] = await Promise.all([
@@ -700,11 +701,22 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                     <article className="card stat-card"><small>Posição no ranking</small><h2>{placement(selectedRanking?.placement)}</h2></article>
                     <article className="card stat-card"><small><BadgeDollarSign size={14} /> Valor da inscrição</small><h2>{payments ? asMoney(payments.enrollment?.total_amount_cents) : '-'}</h2></article>
                     <article className="card stat-card"><small>Parcelamento</small><h2>{payments ? getInstallmentDisplay(payments.installments) : '-'}</h2></article>
-                    <article className={currentOpenDebtCents <= 0 ? 'card stat-card stat-positive' : 'card stat-card stat-negative'}>
+                    <article className={currentOpenDebtCents > 0 ? 'card stat-card stat-negative' : 'card stat-card'}>
                       <small>Saldo devedor</small>
-                      <h2>{payments ? (currentOpenDebtCents <= 0 ? 'Pago' : asMoney(currentOpenDebtCents)) : '-'}</h2>
+                      <h2>{payments ? asMoney(currentOpenDebtCents) : '-'}</h2>
                     </article>
-                    <article className="card stat-card"><small>Status financeiro</small><h2>{payments?.paymentStatus?.label || selectedAthlete.payment_status?.label || '-'}</h2></article>
+                    <article className={
+                      financialStatusCode === 'PAGO'
+                        ? 'card stat-card stat-positive'
+                        : financialStatusCode === 'ATRASO_TOLERANCIA'
+                          ? 'card stat-card stat-warning'
+                          : financialStatusCode === 'BLOQUEADO'
+                            ? 'card stat-card stat-negative'
+                            : 'card stat-card'
+                    }>
+                      <small>Status financeiro</small>
+                      <h2>{payments?.paymentStatus?.label || selectedAthlete.payment_status?.label || '-'}</h2>
+                    </article>
                   </div>
 
                   <div className="card">
