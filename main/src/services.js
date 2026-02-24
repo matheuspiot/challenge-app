@@ -91,8 +91,10 @@ function createServices(db) {
     deleteChallenge: db.prepare('DELETE FROM challenges WHERE id = ? AND user_id = ?'),
 
     listAthletes: db.prepare(`
-      SELECT a.*, COALESCE(SUM(act.km), 0) AS total_km, MAX(act.date) AS last_activity_date
+      SELECT a.*, e.payment_type, e.installments_count,
+      COALESCE(SUM(act.km), 0) AS total_km, MAX(act.date) AS last_activity_date
       FROM athletes a
+      LEFT JOIN enrollments e ON e.athlete_id = a.id
       LEFT JOIN activities act ON act.athlete_id = a.id
       WHERE a.challenge_id = ? AND LOWER(a.name) LIKE ?
       GROUP BY a.id
@@ -341,14 +343,33 @@ function createServices(db) {
     ensureAthleteOwner(athleteId, userId);
     const todayIso = dateToLocalIsoToday();
     const installments = listInstallments(userId, athleteId);
+    const totalInstallments = installments.length;
+    const totalOpenCents = installments.reduce((sum, row) => sum + Number(row.open_cents || 0), 0);
+    const openInstallmentsCount = installments.filter((row) => Number(row.open_cents || 0) > 0).length;
     const overdueRows = installments.filter((row) => row.open_cents > 0 && row.due_date < todayIso);
-    if (overdueRows.length === 0) {
+    if (totalOpenCents <= 0) {
       return {
-        statusCode: 'EM_DIA',
-        label: 'Em dia',
+        statusCode: 'PAGO',
+        label: 'Pago',
         blocked: false,
         maxOverdueDays: 0,
-        blockReason: null
+        blockReason: null,
+        totalOpenCents: 0,
+        openInstallmentsCount: 0,
+        totalInstallments
+      };
+    }
+    if (overdueRows.length === 0) {
+      const isInstallments = totalInstallments > 1;
+      return {
+        statusCode: isInstallments ? 'PARCELADO' : 'EM_DIA',
+        label: isInstallments ? `Parcelado (${openInstallmentsCount}x)` : 'Em dia',
+        blocked: false,
+        maxOverdueDays: 0,
+        blockReason: null,
+        totalOpenCents,
+        openInstallmentsCount,
+        totalInstallments
       };
     }
     const maxOverdue = overdueRows.reduce((max, row) => Math.max(max, daysBetween(row.due_date, todayIso)), 0);
@@ -358,7 +379,10 @@ function createServices(db) {
         label: 'Bloqueado por inadimplência',
         blocked: true,
         maxOverdueDays: maxOverdue,
-        blockReason: `Existe parcela vencida há ${maxOverdue} dias (acima da tolerância de 10 dias).`
+        blockReason: `Existe parcela vencida há ${maxOverdue} dias (acima da tolerância de 10 dias).`,
+        totalOpenCents,
+        openInstallmentsCount,
+        totalInstallments
       };
     }
     return {
@@ -366,7 +390,10 @@ function createServices(db) {
       label: `Atrasado ${maxOverdue} dia(s)`,
       blocked: false,
       maxOverdueDays: maxOverdue,
-      blockReason: null
+      blockReason: null,
+      totalOpenCents,
+      openInstallmentsCount,
+      totalInstallments
     };
   }
 

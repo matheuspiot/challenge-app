@@ -149,6 +149,19 @@ button { border: none; border-radius: 12px; padding: 9px 12px; cursor: pointer; 
   border-radius: 10px;
 }
 .icon-btn.danger { background: #fee2e2; border-color: #fecaca; color: #991b1b; }
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.status-paid { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+.status-partial { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
+.status-warning { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+.status-danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+.status-neutral { background: #e2e8f0; color: #334155; border: 1px solid #cbd5e1; }
 
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
 table { width: 100%; border-collapse: collapse; }
@@ -229,6 +242,7 @@ tbody td { vertical-align: middle; }
 .finance-actions { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
 .finance-btn-small { padding: 9px 12px; font-size: inherit; }
 .finance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px; }
+.payment-add-form { margin-bottom: 12px; }
 
 .selected-athlete { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 9px; }
 .mini-tabs { display: flex; gap: 8px; margin-bottom: 10px; }

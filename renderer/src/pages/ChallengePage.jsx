@@ -93,6 +93,14 @@ function getInstallmentDisplay(installments = []) {
   return `${asMoney(installments[0].amount_cents)} x ${installments.length}`;
 }
 
+function paymentBadgeClass(statusCode) {
+  if (statusCode === 'PAGO') return 'status-badge status-paid';
+  if (statusCode === 'PARCELADO') return 'status-badge status-partial';
+  if (statusCode === 'ATRASO_TOLERANCIA') return 'status-badge status-warning';
+  if (statusCode === 'BLOQUEADO') return 'status-badge status-danger';
+  return 'status-badge status-neutral';
+}
+
 export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdated }) {
   const [tab, setTab] = useState('athletes');
   const [athletes, setAthletes] = useState([]);
@@ -165,6 +173,11 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
     const total = Number(selectedAthlete?.total_km || 0);
     return Math.max(0, goal - total);
   }, [challenge.goal_km, selectedAthlete?.total_km]);
+
+  const currentOpenDebtCents = useMemo(
+    () => (payments?.installments || []).reduce((sum, row) => sum + Number(row.open_cents || 0), 0),
+    [payments]
+  );
 
   async function reload() {
     const [a, r, ac, pe, fi, sh] = await Promise.all([
@@ -510,7 +523,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                       {athletes.map((a) => (
                         <tr key={a.id}>
                           <td>{a.name}</td>
-                          <td>{a.payment_status?.label || '-'}</td>
+                          <td><span className={paymentBadgeClass(a.payment_status?.statusCode)}>{a.payment_status?.label || '-'}</span></td>
                           <td>
                             <div className="icon-actions">
                               <button className="icon-btn" type="button" title="Perfil" onClick={() => openProfileFromList(a.id)}><Eye size={15} /></button>
@@ -687,7 +700,10 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                     <article className="card stat-card"><small>Posição no ranking</small><h2>{placement(selectedRanking?.placement)}</h2></article>
                     <article className="card stat-card"><small><BadgeDollarSign size={14} /> Valor da inscrição</small><h2>{payments ? asMoney(payments.enrollment?.total_amount_cents) : '-'}</h2></article>
                     <article className="card stat-card"><small>Parcelamento</small><h2>{payments ? getInstallmentDisplay(payments.installments) : '-'}</h2></article>
-                    <article className="card stat-card stat-negative"><small>Saldo devedor</small><h2>{payments ? asMoney(openInstallmentsCents(payments.installments)) : '-'}</h2></article>
+                    <article className={currentOpenDebtCents <= 0 ? 'card stat-card stat-positive' : 'card stat-card stat-negative'}>
+                      <small>Saldo devedor</small>
+                      <h2>{payments ? (currentOpenDebtCents <= 0 ? 'Pago' : asMoney(currentOpenDebtCents)) : '-'}</h2>
+                    </article>
                     <article className="card stat-card"><small>Status financeiro</small><h2>{payments?.paymentStatus?.label || selectedAthlete.payment_status?.label || '-'}</h2></article>
                   </div>
 
@@ -713,7 +729,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                       <h4>Pagamentos</h4>
                       {!payments ? <p className="muted">Sem dados de pagamento.</p> : (
                         <>
-                          <form className="stack" onSubmit={submitManualPayment}>
+                          <form className="stack payment-add-form" onSubmit={submitManualPayment}>
                             <label>Adicionar pagamento (R$)
                               <input value={manualPayment.amount} onChange={(e) => setManualPayment((p) => ({ ...p, amount: e.target.value }))} placeholder="Ex: 100,00" required />
                             </label>
@@ -724,7 +740,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                               <input value={manualPayment.note} onChange={(e) => setManualPayment((p) => ({ ...p, note: e.target.value }))} />
                             </label>
                             <div className="actions">
-                              <button className="btn-primary" type="submit">Adicionar e abater</button>
+                              <button className="btn-primary" type="button" onClick={submitManualPayment}>Adicionar e abater</button>
                             </div>
                           </form>
                           <div className="table-wrap">
