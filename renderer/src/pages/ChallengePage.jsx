@@ -122,7 +122,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   const [message, setMessage] = useState('');
   const [accountForm, setAccountForm] = useState({ name: user.name || '', username: user.username || '', newPassword: '' });
   const [savingAccount, setSavingAccount] = useState(false);
-  const [shirtModal, setShirtModal] = useState({ open: false, athleteId: null, athleteName: '' });
+  const [shirtModal, setShirtModal] = useState({ open: false, athleteId: null, athleteName: '', saving: false });
   const [profileEdit, setProfileEdit] = useState({ active: false, saving: false, form: emptyAthlete });
 
   const selectedAthlete = useMemo(
@@ -215,6 +215,23 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
       .then((r) => setPayStatus(r.paymentStatus))
       .catch(() => setPayStatus(null));
   }, [activity.athleteId, user.id]);
+
+  useEffect(() => {
+    if (!shirtModal.open) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closeShirtDeliveryModal();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [shirtModal.open]);
+
+  useEffect(() => {
+    if (tab !== 'profile' && shirtModal.open) {
+      closeShirtDeliveryModal();
+    }
+  }, [tab, shirtModal.open]);
 
   async function loadProfile(athleteId) {
     setSelectedAthleteId(athleteId);
@@ -389,22 +406,30 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   }
 
   function openShirtDeliveryModal(athlete) {
-    setShirtModal({ open: true, athleteId: athlete.id, athleteName: athlete.name || '' });
+    setShirtModal({ open: true, athleteId: athlete.id, athleteName: athlete.name || '', saving: false });
   }
 
   function closeShirtDeliveryModal() {
-    setShirtModal({ open: false, athleteId: null, athleteName: '' });
+    setShirtModal({ open: false, athleteId: null, athleteName: '', saving: false });
   }
 
   async function confirmShirtDelivery() {
     if (!shirtModal.athleteId) return;
-    await callApi('markShirtDelivered', { userId: user.id, athleteId: shirtModal.athleteId, delivered: true });
-    closeShirtDeliveryModal();
-    setMessage('Entrega de camisa registrada com sucesso.');
-    if (selectedAthleteId) {
-      await loadProfile(selectedAthleteId);
+    setShirtModal((prev) => ({ ...prev, saving: true }));
+    setError('');
+    setMessage('');
+    try {
+      await callApi('markShirtDelivered', { userId: user.id, athleteId: shirtModal.athleteId, delivered: true });
+      setMessage('Entrega de camisa registrada com sucesso.');
+      if (selectedAthleteId) {
+        await loadProfile(selectedAthleteId);
+      }
+      await reload();
+    } catch (err) {
+      setError(err.message || 'Falha ao confirmar entrega da camisa.');
+    } finally {
+      closeShirtDeliveryModal();
     }
-    await reload();
   }
 
   async function saveAccount(e) {
@@ -924,13 +949,15 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
           )}
 
           {shirtModal.open && (
-            <div className="modal-overlay">
+            <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) closeShirtDeliveryModal(); }}>
               <div className="modal-box">
                 <h3>Confirmar entrega</h3>
                 <p>Confirmar entrega da camisa para <strong>{shirtModal.athleteName}</strong>?</p>
                 <div className="actions">
-                  <button className="btn-primary" type="button" onClick={confirmShirtDelivery}>Confirmar</button>
-                  <button className="btn-secondary" type="button" onClick={closeShirtDeliveryModal}>Cancelar</button>
+                  <button className="btn-primary" type="button" onClick={confirmShirtDelivery} disabled={shirtModal.saving}>
+                    {shirtModal.saving ? 'Confirmando...' : 'Confirmar'}
+                  </button>
+                  <button className="btn-secondary" type="button" onClick={closeShirtDeliveryModal} disabled={shirtModal.saving}>Cancelar</button>
                 </div>
               </div>
             </div>
