@@ -8,6 +8,7 @@
     "dev": "set ELECTRON_RUN_AS_NODE=&& electron .",
     "build": "echo Main pronto",
     "dist:win": "electron-builder --win nsis",
+    "dist:mac": "electron-builder --mac dmg zip --publish never",
     "postinstall": "electron-builder install-app-deps"
   },
   "build": {
@@ -47,6 +48,15 @@
       "target": [
         "nsis"
       ]
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "artifactName": "Challenge-App-${version}-${arch}.${ext}",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
     },
     "nsis": {
       "oneClick": true,
