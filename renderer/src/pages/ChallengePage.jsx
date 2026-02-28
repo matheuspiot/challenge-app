@@ -780,19 +780,22 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                     <div className="profile-personal-grid">
                       <div className="profile-detail"><small><UserRound size={14} /> Atleta</small><strong>{selectedAthlete.name}</strong></div>
                       <div className="profile-detail"><small><Phone size={14} /> Telefone</small><strong>{selectedAthlete.phone || '-'}</strong></div>
-                      <div className="profile-detail"><small><CalendarDays size={14} /> Nascimento</small><strong>{asDate(selectedAthlete.birth_date)}</strong></div>
+                      <div className="profile-detail">
+                        <small><CalendarDays size={14} /> Nascimento</small>
+                        <div className="birth-highlight">
+                          <strong>{asDate(selectedAthlete.birth_date)}</strong>
+                          {selectedAthleteBirthdayDays !== null ? (
+                            <span className={selectedAthleteBirthdayDays === 0 ? 'birthday-pill birthday-today' : selectedAthleteBirthdayDays <= 5 ? 'birthday-pill birthday-soon' : 'birthday-pill'}>
+                              <Cake size={13} />
+                              {selectedAthleteBirthdayDays === 0 ? 'É hoje' : `Faltam ${selectedAthleteBirthdayDays} dia(s)`}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
                       <div className="profile-detail"><small><UserRound size={14} /> Gênero</small><strong>{selectedAthlete.gender || '-'}</strong></div>
                       <div className="profile-detail"><small><Shirt size={14} /> Camisa</small><strong>{selectedAthlete.shirt_size || '-'}</strong></div>
                       <div className="profile-detail"><small>Número do peito</small><strong>{selectedAthlete.bib_number || '-'}</strong></div>
                       <div className="profile-detail"><small><PackageCheck size={14} /> Entrega da camisa</small><strong>{selectedAthlete.shirt_delivered_at ? `Entregue em ${asDate(selectedAthlete.shirt_delivered_at)}` : 'Pendente'}</strong></div>
-                      {selectedAthleteBirthdayDays !== null ? (
-                        <div className="profile-detail">
-                          <small><Cake size={14} /> Aniversário</small>
-                          <strong>
-                            {selectedAthleteBirthdayDays === 0 ? 'Hoje' : birthdayLabel(selectedAthleteBirthdayDays)}
-                          </strong>
-                        </div>
-                      ) : null}
                     </div>
                   ) : (
                     <form className="profile-personal-grid" onSubmit={saveProfileInlineEdit}>

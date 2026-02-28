@@ -326,6 +326,34 @@ tbody td { vertical-align: middle; }
   font-size: 1.05rem;
   color: #0f172a;
 }
+.birth-highlight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.birthday-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.birthday-pill.birthday-soon {
+  border-color: #facc15;
+  background: #fef9c3;
+  color: #854d0e;
+}
+.birthday-pill.birthday-today {
+  border-color: #22c55e;
+  background: #dcfce7;
+  color: #166534;
+}
 .profile-metrics-grid .stat-card {
   min-height: 104px;
 }
