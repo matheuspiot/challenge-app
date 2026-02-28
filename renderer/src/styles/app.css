@@ -252,6 +252,27 @@ tbody td { vertical-align: middle; }
 .rank-cell { display: flex; align-items: center; gap: 6px; }
 .rank-icon.gold { color: #ca8a04; }
 .rank-icon.silver { color: #64748b; }
+.rank-icon.bronze { color: #b45309; }
+
+.challenge-header-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.notification-btn { position: relative; }
+.notif-dot {
+  position: absolute;
+  top: -2px;
+  right: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #ef4444;
+  box-shadow: 0 0 0 2px #fff;
+}
+.notifications-card {
+  margin-bottom: 12px;
+}
 
 .athlete-profile-panel { background: linear-gradient(135deg, #ecfdf5 0%, #f8fafc 80%); border-color: #99f6e4; }
 .profile-grid { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 12px; }

@@ -8,7 +8,8 @@ import {
   Eye,
   FileSpreadsheet,
   ListChecks,
-  Medal,
+  Bell,
+  Cake,
   PackageCheck,
   Pencil,
   Phone,
@@ -101,6 +102,26 @@ function paymentBadgeClass(statusCode) {
   return 'status-badge status-neutral';
 }
 
+function daysUntilBirthday(birthDate) {
+  if (!birthDate) return null;
+  const [yearStr, monthStr, dayStr] = String(birthDate).slice(0, 10).split('-');
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!month || !day) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let next = new Date(today.getFullYear(), month - 1, day);
+  if (next < today) next = new Date(today.getFullYear() + 1, month - 1, day);
+  return Math.round((next.getTime() - today.getTime()) / 86400000);
+}
+
+function birthdayLabel(days) {
+  if (days === null || days === undefined) return null;
+  if (days === 0) return 'Hoje é aniversário';
+  if (days === 1) return 'Falta 1 dia';
+  return `Faltam ${days} dias`;
+}
+
 export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdated }) {
   const [tab, setTab] = useState('athletes');
   const [athletes, setAthletes] = useState([]);
@@ -124,6 +145,9 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   const [savingAccount, setSavingAccount] = useState(false);
   const [shirtModal, setShirtModal] = useState({ open: false, athleteId: null, athleteName: '', saving: false });
   const [profileEdit, setProfileEdit] = useState({ active: false, saving: false, form: emptyAthlete });
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
+  const [birthdayModalShown, setBirthdayModalShown] = useState(false);
 
   const selectedAthlete = useMemo(
     () => athletes.find((a) => Number(a.id) === Number(selectedAthleteId)) || null,
@@ -179,6 +203,17 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
     [payments]
   );
   const financialStatusCode = payments?.paymentStatus?.statusCode || selectedAthlete?.payment_status?.statusCode || '';
+  const selectedAthleteBirthdayDays = useMemo(
+    () => (selectedAthlete?.birth_date ? daysUntilBirthday(selectedAthlete.birth_date) : null),
+    [selectedAthlete?.birth_date]
+  );
+  const upcomingBirthdays = useMemo(() => {
+    return athletes
+      .map((a) => ({ ...a, birthdayDays: a.birth_date ? daysUntilBirthday(a.birth_date) : null }))
+      .filter((a) => a.birthdayDays !== null && a.birthdayDays >= 0 && a.birthdayDays <= 5)
+      .sort((a, b) => a.birthdayDays - b.birthdayDays);
+  }, [athletes]);
+  const blockedPendencies = useMemo(() => pendencies.filter((p) => String(p.severity || '') === 'blocked'), [pendencies]);
 
   async function reload() {
     const [a, r, ac, pe, fi, sh] = await Promise.all([
@@ -201,6 +236,13 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   useEffect(() => {
     reload().catch((e) => setError(e.message));
   }, [challenge.id]);
+
+  useEffect(() => {
+    if (!birthdayModalShown && upcomingBirthdays.length > 0) {
+      setBirthdayModalOpen(true);
+      setBirthdayModalShown(true);
+    }
+  }, [upcomingBirthdays, birthdayModalShown]);
 
   useEffect(() => {
     setAccountForm({ name: user.name || '', username: user.username || '', newPassword: '' });
@@ -366,6 +408,8 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   async function openProfileFromList(athleteId) {
     await loadProfile(athleteId);
     setTab('profile');
+    setNotificationsOpen(false);
+    setBirthdayModalOpen(false);
   }
 
   async function payInstallment(installmentId) {
@@ -516,8 +560,61 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
         </aside>
 
         <main className="challenge-main">
+          <div className="challenge-header-actions">
+            <button className="icon-btn notification-btn" type="button" title="Notificações" onClick={() => setNotificationsOpen((v) => !v)}>
+              <Bell size={15} />
+              {(upcomingBirthdays.length > 0 || pendencies.length > 0) ? <span className="notif-dot" /> : null}
+            </button>
+          </div>
+
           {error && <div className="error-box">{error}</div>}
           {message && <div className="success-box">{message}</div>}
+
+          {notificationsOpen && (
+            <section className="card notifications-card">
+              <h3>Notificações</h3>
+              <div className="stack">
+                <h4>Aniversários próximos</h4>
+                {upcomingBirthdays.length === 0 ? <p className="muted">Nenhum aniversário nos próximos 5 dias.</p> : (
+                  <div className="table-wrap">
+                    <table>
+                      <thead><tr><th>Atleta</th><th>Data</th><th>Aviso</th><th>Ação</th></tr></thead>
+                      <tbody>
+                        {upcomingBirthdays.map((a) => (
+                          <tr key={`bday-${a.id}`}>
+                            <td>{a.name}</td>
+                            <td>{asDate(a.birth_date)}</td>
+                            <td>{birthdayLabel(a.birthdayDays)}</td>
+                            <td><button className="btn-secondary" type="button" onClick={() => openProfileFromList(a.id)}>Abrir perfil</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <h4>Pendências financeiras</h4>
+                {pendencies.length === 0 ? <p className="muted">Sem pendências.</p> : (
+                  <div className="table-wrap">
+                    <table>
+                      <thead><tr><th>Atleta</th><th>Status</th><th>Ação</th></tr></thead>
+                      <tbody>
+                        {pendencies.slice(0, 10).map((p) => (
+                          <tr key={`pen-${p.installment_id}`}>
+                            <td>{p.athlete_name}</td>
+                            <td>{p.statusLabel}</td>
+                            <td><button className="btn-secondary" type="button" onClick={() => openProfileFromList(p.athlete_id)}>Abrir atleta</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {blockedPendencies.length > 0 ? <div className="error-box">{blockedPendencies.length} atleta(s) com bloqueio por inadimplência.</div> : null}
+              </div>
+            </section>
+          )}
 
           {tab === 'athletes' && (
             <section className="card split">
@@ -611,7 +708,14 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                   <tbody>
                     {ranking.map((r, i) => (
                       <tr key={r.id}>
-                        <td><span className="btn-inline">{i === 0 ? <Trophy size={14} className="rank-icon gold" /> : <Medal size={14} className="rank-icon silver" />}{placement(i + 1)}</span></td>
+                        <td>
+                          <span className="btn-inline">
+                            {i === 0 ? <Trophy size={14} className="rank-icon gold" /> : null}
+                            {i === 1 ? <Trophy size={14} className="rank-icon silver" /> : null}
+                            {i === 2 ? <Trophy size={14} className="rank-icon bronze" /> : null}
+                            {placement(i + 1)}
+                          </span>
+                        </td>
                         <td>{r.name}</td>
                         <td>{asKm(r.total_km, true)}</td>
                         <td><button className="icon-btn" type="button" title="Ver perfil" onClick={() => openProfileFromList(r.id)}><Eye size={15} /></button></td>
@@ -681,6 +785,14 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                       <div className="profile-detail"><small><Shirt size={14} /> Camisa</small><strong>{selectedAthlete.shirt_size || '-'}</strong></div>
                       <div className="profile-detail"><small>Número do peito</small><strong>{selectedAthlete.bib_number || '-'}</strong></div>
                       <div className="profile-detail"><small><PackageCheck size={14} /> Entrega da camisa</small><strong>{selectedAthlete.shirt_delivered_at ? `Entregue em ${asDate(selectedAthlete.shirt_delivered_at)}` : 'Pendente'}</strong></div>
+                      {selectedAthleteBirthdayDays !== null ? (
+                        <div className="profile-detail">
+                          <small><Cake size={14} /> Aniversário</small>
+                          <strong>
+                            {selectedAthleteBirthdayDays === 0 ? 'Hoje' : birthdayLabel(selectedAthleteBirthdayDays)}
+                          </strong>
+                        </div>
+                      ) : null}
                     </div>
                   ) : (
                     <form className="profile-personal-grid" onSubmit={saveProfileInlineEdit}>
@@ -958,6 +1070,21 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                     {shirtModal.saving ? 'Confirmando...' : 'Confirmar'}
                   </button>
                   <button className="btn-secondary" type="button" onClick={closeShirtDeliveryModal} disabled={shirtModal.saving}>Cancelar</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {birthdayModalOpen && (
+            <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setBirthdayModalOpen(false); }}>
+              <div className="modal-box">
+                <h3>Lembrete de aniversário</h3>
+                <p>Você tem {upcomingBirthdays.length} aniversário(s) nos próximos 5 dias.</p>
+                <div className="actions">
+                  <button className="btn-primary" type="button" onClick={() => { setNotificationsOpen(true); setBirthdayModalOpen(false); }}>
+                    Ver notificações
+                  </button>
+                  <button className="btn-secondary" type="button" onClick={() => setBirthdayModalOpen(false)}>Fechar</button>
                 </div>
               </div>
             </div>
