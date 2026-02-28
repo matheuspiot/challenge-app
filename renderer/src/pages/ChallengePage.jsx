@@ -122,6 +122,26 @@ function birthdayLabel(days) {
   return `Faltam ${days} dias`;
 }
 
+function nextBirthdayDate(birthDate) {
+  if (!birthDate) return null;
+  const [yearStr, monthStr, dayStr] = String(birthDate).slice(0, 10).split('-');
+  const month = Number(monthStr);
+  const day = Number(dayStr);
+  if (!month || !day) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let next = new Date(today.getFullYear(), month - 1, day);
+  if (next < today) next = new Date(today.getFullYear() + 1, month - 1, day);
+  return next.toISOString().slice(0, 10);
+}
+
+function birthdayOccurrenceKey(athlete) {
+  if (!athlete?.id || !athlete?.birth_date) return null;
+  const nextDate = nextBirthdayDate(athlete.birth_date);
+  if (!nextDate) return null;
+  return `${athlete.id}:${nextDate}`;
+}
+
 export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdated }) {
   const [tab, setTab] = useState('athletes');
   const [athletes, setAthletes] = useState([]);
@@ -147,7 +167,13 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   const [profileEdit, setProfileEdit] = useState({ active: false, saving: false, form: emptyAthlete });
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
-  const [birthdayModalShown, setBirthdayModalShown] = useState(false);
+  const [birthdayModalItems, setBirthdayModalItems] = useState([]);
+  const [seenBirthdayKeys, setSeenBirthdayKeys] = useState([]);
+
+  const birthdayStorageKey = useMemo(
+    () => `challengeapp:birthdays:seen:${user.id}:${challenge.id}`,
+    [user.id, challenge.id]
+  );
 
   const selectedAthlete = useMemo(
     () => athletes.find((a) => Number(a.id) === Number(selectedAthleteId)) || null,
@@ -213,7 +239,27 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
       .filter((a) => a.birthdayDays !== null && a.birthdayDays >= 0 && a.birthdayDays <= 5)
       .sort((a, b) => a.birthdayDays - b.birthdayDays);
   }, [athletes]);
+  const unseenUpcomingBirthdays = useMemo(
+    () => upcomingBirthdays.filter((a) => {
+      const key = birthdayOccurrenceKey(a);
+      return key && !seenBirthdayKeys.includes(key);
+    }),
+    [upcomingBirthdays, seenBirthdayKeys]
+  );
   const blockedPendencies = useMemo(() => pendencies.filter((p) => String(p.severity || '') === 'blocked'), [pendencies]);
+
+  function markBirthdaysAsSeen(items) {
+    if (!items?.length) return;
+    const keys = items.map(birthdayOccurrenceKey).filter(Boolean);
+    if (!keys.length) return;
+    setSeenBirthdayKeys((prev) => [...new Set([...prev, ...keys])]);
+  }
+
+  function markBirthdayAsSeen(athlete) {
+    const key = birthdayOccurrenceKey(athlete);
+    if (!key) return;
+    setSeenBirthdayKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
+  }
 
   async function reload() {
     const [a, r, ac, pe, fi, sh] = await Promise.all([
@@ -238,11 +284,26 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   }, [challenge.id]);
 
   useEffect(() => {
-    if (!birthdayModalShown && upcomingBirthdays.length > 0) {
-      setBirthdayModalOpen(true);
-      setBirthdayModalShown(true);
+    try {
+      const raw = localStorage.getItem(birthdayStorageKey);
+      const parsed = raw ? JSON.parse(raw) : [];
+      setSeenBirthdayKeys(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setSeenBirthdayKeys([]);
     }
-  }, [upcomingBirthdays, birthdayModalShown]);
+  }, [birthdayStorageKey]);
+
+  useEffect(() => {
+    localStorage.setItem(birthdayStorageKey, JSON.stringify(seenBirthdayKeys));
+  }, [birthdayStorageKey, seenBirthdayKeys]);
+
+  useEffect(() => {
+    if (!birthdayModalOpen && unseenUpcomingBirthdays.length > 0) {
+      setBirthdayModalItems(unseenUpcomingBirthdays);
+      markBirthdaysAsSeen(unseenUpcomingBirthdays);
+      setBirthdayModalOpen(true);
+    }
+  }, [unseenUpcomingBirthdays, birthdayModalOpen]);
 
   useEffect(() => {
     setAccountForm({ name: user.name || '', username: user.username || '', newPassword: '' });
@@ -412,6 +473,11 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
     setBirthdayModalOpen(false);
   }
 
+  async function openBirthdayProfile(athlete) {
+    markBirthdayAsSeen(athlete);
+    await openProfileFromList(athlete.id);
+  }
+
   async function payInstallment(installmentId) {
     await callApi('markInstallmentPaid', { userId: user.id, installmentId, payment: {} });
     if (selectedAthleteId) await loadProfile(selectedAthleteId);
@@ -563,7 +629,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
           <div className="challenge-header-actions">
             <button className="icon-btn notification-btn" type="button" title="Notificações" onClick={() => setNotificationsOpen((v) => !v)}>
               <Bell size={15} />
-              {(upcomingBirthdays.length > 0 || pendencies.length > 0) ? <span className="notif-dot" /> : null}
+              {(unseenUpcomingBirthdays.length > 0 || pendencies.length > 0) ? <span className="notif-dot" /> : null}
             </button>
           </div>
 
@@ -575,17 +641,17 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
               <h3>Notificações</h3>
               <div className="stack">
                 <h4>Aniversários próximos</h4>
-                {upcomingBirthdays.length === 0 ? <p className="muted">Nenhum aniversário nos próximos 5 dias.</p> : (
+                {unseenUpcomingBirthdays.length === 0 ? <p className="muted">Nenhum aniversário novo nos próximos 5 dias.</p> : (
                   <div className="table-wrap">
                     <table>
                       <thead><tr><th>Atleta</th><th>Data</th><th>Aviso</th><th>Ação</th></tr></thead>
                       <tbody>
-                        {upcomingBirthdays.map((a) => (
+                        {unseenUpcomingBirthdays.map((a) => (
                           <tr key={`bday-${a.id}`}>
                             <td>{a.name}</td>
                             <td>{asDate(a.birth_date)}</td>
                             <td>{birthdayLabel(a.birthdayDays)}</td>
-                            <td><button className="btn-secondary" type="button" onClick={() => openProfileFromList(a.id)}>Abrir perfil</button></td>
+                            <td><button className="btn-secondary" type="button" onClick={() => openBirthdayProfile(a)}>Abrir perfil</button></td>
                           </tr>
                         ))}
                       </tbody>
@@ -1082,7 +1148,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
             <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) setBirthdayModalOpen(false); }}>
               <div className="modal-box">
                 <h3>Lembrete de aniversário</h3>
-                <p>Você tem {upcomingBirthdays.length} aniversário(s) nos próximos 5 dias.</p>
+                <p>Você tem {birthdayModalItems.length} aniversário(s) novo(s) nos próximos 5 dias.</p>
                 <div className="actions">
                   <button className="btn-primary" type="button" onClick={() => { setNotificationsOpen(true); setBirthdayModalOpen(false); }}>
                     Ver notificações
