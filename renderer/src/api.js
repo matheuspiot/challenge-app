@@ -1,36 +1,51 @@
-Ôªøfunction ensureApi() {
+function ensureApi() {
   if (!window.api) {
-    throw new Error('API local indispon√≠vel. Reinicie o aplicativo.');
+    throw new Error('API local indisponÌvel. Reinicie o aplicativo.');
   }
   return window.api;
+}
+
+const IPC_TIMEOUT_MS = 15000;
+
+function withTimeout(promise, timeoutMs = IPC_TIMEOUT_MS) {
+  let timer = null;
+  const timeoutPromise = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error('Tempo limite excedido na comunicaÁ„o com o aplicativo. Tente novamente.'));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
 }
 
 export async function callApi(method, payload) {
   const api = ensureApi();
   if (typeof api[method] !== 'function') {
-    throw new Error(`M√©todo n√£o encontrado: ${method}`);
+    throw new Error(`MÈtodo n„o encontrado: ${method}`);
   }
 
-  const result = await api[method](payload);
+  const result = await withTimeout(api[method](payload));
   if (result?.error) {
-    throw new Error(result.error.message || 'Erro na opera√ß√£o.');
+    throw new Error(result.error.message || 'Erro na operaÁ„o.');
   }
   return result;
 }
 
 export async function getUpdateStatus() {
   const api = ensureApi();
-  return api.getUpdateStatus();
+  return withTimeout(api.getUpdateStatus());
 }
 
 export async function checkForUpdates() {
   const api = ensureApi();
-  return api.checkForUpdates();
+  return withTimeout(api.checkForUpdates());
 }
 
 export async function installUpdateNow() {
   const api = ensureApi();
-  return api.installUpdateNow();
+  return withTimeout(api.installUpdateNow());
 }
 
 export function subscribeUpdateStatus(callback) {
@@ -40,15 +55,15 @@ export function subscribeUpdateStatus(callback) {
 
 export async function getAppMeta() {
   const api = ensureApi();
-  return api.getAppMeta();
+  return withTimeout(api.getAppMeta());
 }
 
 export async function getAthletePayments(payload) {
   const api = ensureApi();
-  return api.getAthletePayments(payload);
+  return withTimeout(api.getAthletePayments(payload));
 }
 
 export async function addPayment(payload) {
   const api = ensureApi();
-  return api.addPayment(payload);
+  return withTimeout(api.addPayment(payload));
 }

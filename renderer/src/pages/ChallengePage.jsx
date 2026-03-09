@@ -331,6 +331,17 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   }, [shirtModal.open]);
 
   useEffect(() => {
+    if (!birthdayModalOpen) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setBirthdayModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [birthdayModalOpen]);
+
+  useEffect(() => {
     if (tab !== 'profile' && shirtModal.open) {
       closeShirtDeliveryModal();
     }
@@ -1138,7 +1149,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                   <button className="btn-primary" type="button" onClick={confirmShirtDelivery} disabled={shirtModal.saving}>
                     {shirtModal.saving ? 'Confirmando...' : 'Confirmar'}
                   </button>
-                  <button className="btn-secondary" type="button" onClick={closeShirtDeliveryModal} disabled={shirtModal.saving}>Cancelar</button>
+                  <button className="btn-secondary" type="button" onClick={closeShirtDeliveryModal}>Cancelar</button>
                 </div>
               </div>
             </div>
