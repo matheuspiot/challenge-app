@@ -10,12 +10,15 @@ const logger = require('./logger');
 const isDev = !app.isPackaged;
 const isAutoUpdateDisabled = process.env.DISABLE_AUTO_UPDATE === '1';
 const canUseAutoUpdate = !isDev && !isAutoUpdateDisabled;
+const AUTO_BACKUP_INTERVAL_MS = 5 * 60 * 1000;
+const AUTO_BACKUP_RETENTION = 96;
 
 let mainWindow = null;
 let dbCtx = null;
 let services = null;
 let updateStatus = { status: 'idle', message: 'Atualizações não verificadas.', progress: null };
 let updateStatusTimeout = null;
+let autoBackupInterval = null;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -80,6 +83,53 @@ function initDb() {
   dbCtx = initializeDatabase(app.getPath('userData'));
   services = createServices(dbCtx.db);
   logger.info('Banco inicializado', { dbPath: dbCtx.dbPath });
+}
+
+function ensureAutoBackupDir() {
+  const backupDir = path.join(app.getPath('userData'), 'database', 'auto-backups');
+  fs.mkdirSync(backupDir, { recursive: true });
+  return backupDir;
+}
+
+function pruneAutoBackups(backupDir) {
+  const backups = fs
+    .readdirSync(backupDir, { withFileTypes: true })
+    .filter((entry) => entry.isFile() && /^desafios-auto-.+\.db$/.test(entry.name))
+    .map((entry) => {
+      const fullPath = path.join(backupDir, entry.name);
+      return { fullPath, mtimeMs: fs.statSync(fullPath).mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+  for (const oldBackup of backups.slice(AUTO_BACKUP_RETENTION)) {
+    fs.unlinkSync(oldBackup.fullPath);
+  }
+}
+
+function createAutomaticBackup(reason = 'interval') {
+  if (!dbCtx?.db || !dbCtx?.dbPath) return null;
+
+  const backupDir = ensureAutoBackupDir();
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupPath = path.join(backupDir, `desafios-auto-${stamp}.db`);
+
+  dbCtx.db.pragma('wal_checkpoint(TRUNCATE)');
+  fs.copyFileSync(dbCtx.dbPath, backupPath);
+  pruneAutoBackups(backupDir);
+  logger.info('Backup automático criado', { backupPath, reason });
+  return backupPath;
+}
+
+function startAutomaticBackups() {
+  if (autoBackupInterval) clearInterval(autoBackupInterval);
+
+  autoBackupInterval = setInterval(() => {
+    try {
+      createAutomaticBackup('interval');
+    } catch (error) {
+      logger.error('Falha ao criar backup automático', { message: error.message, stack: error.stack });
+    }
+  }, AUTO_BACKUP_INTERVAL_MS);
 }
 
 function asUserId(raw) {
@@ -192,7 +242,10 @@ function setupIpcHandlers() {
   handle('challenges:list', ({ userId }) => ({ challenges: services.listChallenges(asUserId(userId)) }));
   handle('challenges:create', ({ userId, challenge }) => ({ challenge: services.createChallenge(asUserId(userId), challenge || {}) }));
   handle('challenges:update', ({ userId, challengeId, challenge }) => ({ challenge: services.updateChallenge(asUserId(userId), Number(challengeId), challenge || {}) }));
-  handle('challenges:delete', ({ userId, challengeId }) => services.deleteChallenge(asUserId(userId), Number(challengeId)));
+  handle('challenges:delete', ({ userId, challengeId }) => {
+    createAutomaticBackup('before-challenge-delete');
+    return services.deleteChallenge(asUserId(userId), Number(challengeId));
+  });
 
   handle('athletes:list', ({ userId, challengeId, filter }) => ({ athletes: services.listAthletes(asUserId(userId), Number(challengeId), filter || '') }));
   handle('athletes:create', ({ userId, challengeId, athlete }) => ({ athlete: services.createAthlete(asUserId(userId), Number(challengeId), athlete || {}) }));
@@ -415,6 +468,7 @@ app.whenReady().then(() => {
   setupIpcHandlers();
   createAppMenu();
   setupAutoUpdater();
+  startAutomaticBackups();
   createMainWindow();
 
   if (canUseAutoUpdate) {
@@ -430,6 +484,13 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', () => {
+  if (autoBackupInterval) {
+    clearInterval(autoBackupInterval);
+    autoBackupInterval = null;
+  }
 });
 
 process.on('uncaughtException', (error) => {

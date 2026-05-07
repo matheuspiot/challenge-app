@@ -125,6 +125,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: #8ab8ff
 input::placeholder, textarea::placeholder { color: #9ca3af; opacity: 1; }
 
 button { border: none; border-radius: 12px; padding: 9px 12px; cursor: pointer; font: inherit; transition: all .15s ease; }
+button:disabled { opacity: 0.62; cursor: not-allowed; }
 .btn-inline { display: inline-flex; align-items: center; gap: 6px; }
 .btn-primary { background: var(--primary); color: white; }
 .btn-primary:hover { background: var(--primary-strong); }
@@ -363,6 +364,18 @@ tbody td { vertical-align: middle; }
   display: grid; place-items: center; z-index: 1000; padding: 20px;
 }
 .modal-box { width: min(460px, 100%); background: white; border-radius: 12px; border: 1px solid var(--border); padding: 16px; }
+.danger-modal { width: min(560px, 100%); }
+.danger-modal h3 { margin-top: 0; }
+.confirmation-phrase {
+  display: block;
+  margin: 8px 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #fecaca;
+  background: #fff7f7;
+  color: #7f1d1d;
+  white-space: normal;
+}
 
 p, small { color: var(--muted); }
 

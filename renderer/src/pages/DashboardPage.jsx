@@ -3,6 +3,7 @@ import { FolderOpen, LogOut, Pencil, Plus, Trash2 } from 'lucide-react';
 
 const emptyChallenge = { title: '', description: '', goalKm: '', startDate: '', endDate: '' };
 const nf = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const DELETE_CONFIRMATION_TEXT = 'Eu quero excluir esse projeto';
 const formatKm = (v) => `${nf.format(Number(v || 0))} km`;
 const formatDate = (v) => {
   if (!v) return '-';
@@ -15,6 +16,10 @@ export function DashboardPage({ user, challenges, loading, error, onOpenChalleng
   const [editId, setEditId] = useState(null);
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
 
   const sorted = useMemo(
     () =>
@@ -50,6 +55,36 @@ export function DashboardPage({ user, challenges, loading, error, onOpenChalleng
       setFormError(err.message);
     } finally {
       setSaving(false);
+    }
+  }
+
+  function openDeleteModal(challenge) {
+    setDeleteTarget(challenge);
+    setDeleteConfirmation('');
+    setDeleteError('');
+  }
+
+  function closeDeleteModal() {
+    if (deleting) return;
+    setDeleteTarget(null);
+    setDeleteConfirmation('');
+    setDeleteError('');
+  }
+
+  async function confirmDeleteChallenge(e) {
+    e.preventDefault();
+    if (!deleteTarget || deleteConfirmation !== DELETE_CONFIRMATION_TEXT) return;
+
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await onRemoveChallenge(deleteTarget.id);
+      setDeleteTarget(null);
+      setDeleteConfirmation('');
+    } catch (err) {
+      setDeleteError(err.message);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -97,12 +132,50 @@ export function DashboardPage({ user, challenges, loading, error, onOpenChalleng
               <div className="icon-actions">
                 <button className="icon-btn" title="Abrir desafio" onClick={() => onOpenChallenge(challenge)}><FolderOpen size={15} /></button>
                 <button className="icon-btn" title="Editar desafio" onClick={() => startEdit(challenge)}><Pencil size={15} /></button>
-                <button className="icon-btn danger" title="Excluir desafio" onClick={() => onRemoveChallenge(challenge.id)}><Trash2 size={15} /></button>
+                <button className="icon-btn danger" title="Excluir desafio" onClick={() => openDeleteModal(challenge)}><Trash2 size={15} /></button>
               </div>
             </article>
           ))}
         </div>
       </section>
+
+      {deleteTarget ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="delete-challenge-title">
+          <form className="modal-box danger-modal" onSubmit={confirmDeleteChallenge}>
+            <h3 id="delete-challenge-title">Excluir desafio</h3>
+            <div className="warning-box">
+              Esta ação apaga permanentemente o projeto, atletas, atividades, inscrições, parcelas e pagamentos vinculados.
+              Não será possível recuperar pelo app depois da exclusão, a menos que exista um backup.
+            </div>
+            <p>
+              Para confirmar a exclusão de <strong>{deleteTarget.title}</strong>, digite exatamente:
+            </p>
+            <code className="confirmation-phrase">{DELETE_CONFIRMATION_TEXT}</code>
+            <label>
+              Frase de confirmação
+              <input
+                autoFocus
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                placeholder={DELETE_CONFIRMATION_TEXT}
+              />
+            </label>
+            {deleteError && <div className="error-box">{deleteError}</div>}
+            <div className="actions">
+              <button
+                className="btn-danger"
+                disabled={deleting || deleteConfirmation !== DELETE_CONFIRMATION_TEXT}
+                type="submit"
+              >
+                {deleting ? 'Excluindo...' : 'Excluir definitivamente'}
+              </button>
+              <button className="btn-secondary" disabled={deleting} type="button" onClick={closeDeleteModal}>
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
     </div>
   );
 }
