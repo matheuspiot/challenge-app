@@ -78,6 +78,165 @@ function toCsv(headers, rows) {
   return `${headerLine}\n${body}`;
 }
 
+function htmlEscape(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function safeFileName(value, fallback = 'ranking') {
+  return String(value || fallback).replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+function formatPdfKm(value) {
+  return new Intl.NumberFormat('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  }).format(Number(value || 0));
+}
+
+function formatPdfDate() {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(new Date());
+}
+
+function rankingPdfHtml(challengeTitle, ranking) {
+  const rows = ranking.map((row, idx) => `
+    <tr>
+      <td class="position">${idx + 1}º</td>
+      <td>${htmlEscape(row.name)}</td>
+      <td class="km">${htmlEscape(formatPdfKm(row.total_km))} km</td>
+    </tr>
+  `).join('');
+
+  return `<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <title>Ranking ${htmlEscape(challengeTitle || '')}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 32px;
+      color: #111827;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #ffffff;
+    }
+    header {
+      border-bottom: 2px solid #0b63d8;
+      margin-bottom: 22px;
+      padding-bottom: 14px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      color: #0f172a;
+      font-size: 26px;
+      line-height: 1.2;
+    }
+    .meta {
+      margin: 0;
+      color: #64748b;
+      font-size: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #dbe3ef;
+    }
+    th {
+      background: #eef4ff;
+      color: #243247;
+      font-size: 12px;
+      text-align: left;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    th, td {
+      border-bottom: 1px solid #dbe3ef;
+      padding: 10px 12px;
+    }
+    td {
+      font-size: 14px;
+    }
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+    .position {
+      width: 90px;
+      font-weight: 700;
+      color: #0b63d8;
+    }
+    .km {
+      width: 140px;
+      text-align: right;
+      font-weight: 700;
+    }
+    .empty {
+      color: #64748b;
+      padding: 18px;
+      border: 1px solid #dbe3ef;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ranking Geral - ${htmlEscape(challengeTitle || 'Desafio')}</h1>
+    <p class="meta">Gerado em ${htmlEscape(formatPdfDate())}</p>
+  </header>
+  ${ranking.length ? `
+    <table>
+      <thead>
+        <tr>
+          <th>Colocação</th>
+          <th>Nome</th>
+          <th class="km">KM</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  ` : '<p class="empty">Nenhum atleta cadastrado no ranking.</p>'}
+</body>
+</html>`;
+}
+
+async function createPdfFromHtml(html) {
+  const pdfWindow = new BrowserWindow({
+    show: false,
+    webPreferences: {
+      sandbox: true,
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  try {
+    await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+    return await pdfWindow.webContents.printToPDF({
+      printBackground: true,
+      pageSize: 'A4',
+      margins: {
+        top: 0.4,
+        bottom: 0.4,
+        left: 0.4,
+        right: 0.4
+      }
+    });
+  } finally {
+    if (!pdfWindow.isDestroyed()) pdfWindow.close();
+  }
+}
+
 function initDb() {
   if (dbCtx?.db) dbCtx.db.close();
   dbCtx = initializeDatabase(app.getPath('userData'));
@@ -296,6 +455,20 @@ function setupIpcHandlers() {
     });
     if (result.canceled || !result.filePath) return { canceled: true };
     fs.writeFileSync(result.filePath, toCsv(headers, rows), 'utf8');
+    return { canceled: false, filePath: result.filePath };
+  });
+
+  handle('export:ranking-pdf', async ({ userId, challengeId, challengeTitle }) => {
+    const ranking = services.ranking(asUserId(userId), Number(challengeId));
+    const result = await dialog.showSaveDialog(mainWindow, {
+      title: 'Baixar ranking',
+      defaultPath: `${safeFileName(challengeTitle || 'ranking')}_ranking.pdf`,
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+
+    const pdfBuffer = await createPdfFromHtml(rankingPdfHtml(challengeTitle, ranking));
+    fs.writeFileSync(result.filePath, pdfBuffer);
     return { canceled: false, filePath: result.filePath };
   });
 

@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('api', {
   getProgress: (payload) => ipcRenderer.invoke('progress:get', payload),
 
   exportRankingCsv: (payload) => ipcRenderer.invoke('export:ranking-csv', payload),
+  exportRankingPdf: (payload) => ipcRenderer.invoke('export:ranking-pdf', payload),
   exportActivitiesCsv: (payload) => ipcRenderer.invoke('export:activities-csv', payload),
   exportFinancePaidCsv: (payload) => ipcRenderer.invoke('export:finance-paid-csv', payload),
   exportFinanceOverdueCsv: (payload) => ipcRenderer.invoke('export:finance-overdue-csv', payload),

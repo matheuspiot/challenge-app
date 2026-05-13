@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CircleAlert,
   CirclePlus,
+  Download,
   Eye,
   FileSpreadsheet,
   ListChecks,
@@ -1108,7 +1109,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
             <section className="card">
               <h3>Exportações</h3>
               <div className="actions">
-                <button className="btn-primary btn-inline" type="button" onClick={() => callApi('exportRankingCsv', { userId: user.id, challengeId: challenge.id, challengeTitle: challenge.title })}><FileSpreadsheet size={16} />Ranking</button>
+                <button className="btn-primary btn-inline" type="button" onClick={() => callApi('exportRankingPdf', { userId: user.id, challengeId: challenge.id, challengeTitle: challenge.title })}><Download size={16} />Baixar Ranking</button>
                 <button className="btn-primary btn-inline" type="button" onClick={() => callApi('exportActivitiesCsv', { userId: user.id, challengeId: challenge.id, challengeTitle: challenge.title })}><FileSpreadsheet size={16} />Atividades</button>
               </div>
             </section>
