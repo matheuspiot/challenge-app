@@ -779,7 +779,10 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
 
           {tab === 'ranking' && (
             <section className="card">
-              <h3>Ranking atual</h3>
+              <div className="topbar">
+                <h3>Ranking atual</h3>
+                <button className="btn-primary btn-inline" type="button" onClick={() => callApi('exportRankingPdf', { userId: user.id, challengeId: challenge.id, challengeTitle: challenge.title })}><Download size={16} />Baixar Ranking</button>
+              </div>
               <div className="table-wrap">
                 <table>
                   <thead><tr><th>#</th><th>Atleta</th><th>Total KM</th><th>Perfil</th></tr></thead>
@@ -1109,7 +1112,6 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
             <section className="card">
               <h3>Exportações</h3>
               <div className="actions">
-                <button className="btn-primary btn-inline" type="button" onClick={() => callApi('exportRankingPdf', { userId: user.id, challengeId: challenge.id, challengeTitle: challenge.title })}><Download size={16} />Baixar Ranking</button>
                 <button className="btn-primary btn-inline" type="button" onClick={() => callApi('exportActivitiesCsv', { userId: user.id, challengeId: challenge.id, challengeTitle: challenge.title })}><FileSpreadsheet size={16} />Atividades</button>
               </div>
             </section>
