@@ -144,11 +144,11 @@ function createServices(db) {
       GROUP BY a.id
     `),
     rankingActivities: db.prepare(`
-      SELECT act.athlete_id, act.date, act.km, act.created_at
+      SELECT act.athlete_id, act.id, act.km
       FROM activities act
       JOIN athletes a ON a.id = act.athlete_id
       WHERE a.challenge_id = ?
-      ORDER BY act.date ASC, act.created_at ASC, act.id ASC
+      ORDER BY act.id ASC
     `),
     challengeProgress: db.prepare(`
       SELECT c.id, c.goal_km, COALESCE(SUM(act.km), 0) AS total_km
@@ -664,38 +664,44 @@ function createServices(db) {
     const baseRows = statements.rankingBase.all(challengeId).map((row) => ({
       ...row,
       total_km: Number(row.total_km || 0),
-      reached_goal_at: null
+      completed: false,
+      reached_goal_seq: null
     }));
 
     if (goalKm > 0) {
       const byAthlete = new Map(baseRows.map((row) => [row.id, row]));
       const cumulativeByAthlete = new Map();
+      // Atividades em ordem de cadastro (id crescente = lançado antes no sistema).
       const activityRows = statements.rankingActivities.all(challengeId);
 
       for (const activity of activityRows) {
         const athleteId = Number(activity.athlete_id);
         const row = byAthlete.get(athleteId);
-        if (!row || row.reached_goal_at) continue;
+        if (!row || row.completed) continue;
 
         const prev = cumulativeByAthlete.get(athleteId) || 0;
         const next = prev + Number(activity.km || 0);
         cumulativeByAthlete.set(athleteId, next);
         if (next >= goalKm) {
-          row.reached_goal_at = `${activity.date} ${activity.created_at || ''}`.trim();
+          row.completed = true;
+          // Sequência de cadastro do lançamento que bateu a meta (define a ordem de chegada).
+          row.reached_goal_seq = Number(activity.id);
         }
       }
     }
 
     baseRows.sort((a, b) => {
-      if (b.total_km !== a.total_km) return b.total_km - a.total_km;
+      // Quem concluiu a meta fica sempre à frente de quem não concluiu.
+      if (a.completed !== b.completed) return a.completed ? -1 : 1;
 
-      const aReached = !!a.reached_goal_at;
-      const bReached = !!b.reached_goal_at;
-      if (aReached && bReached) {
-        if (a.reached_goal_at !== b.reached_goal_at) return a.reached_goal_at < b.reached_goal_at ? -1 : 1;
-      } else if (aReached !== bReached) {
-        return aReached ? -1 : 1;
+      // Entre os que concluíram, vale a ordem de cadastro do lançamento que bateu a meta:
+      // quem foi lançado antes no sistema (menor id) fica na frente, mesmo que outro acumule mais km depois.
+      if (a.completed && b.completed && a.reached_goal_seq !== b.reached_goal_seq) {
+        return a.reached_goal_seq - b.reached_goal_seq;
       }
+
+      // Entre os que ainda não concluíram (ou empate), ordena por maior km e depois registro mais antigo.
+      if (b.total_km !== a.total_km) return b.total_km - a.total_km;
 
       const aLast = a.last_activity_date || '9999-12-31';
       const bLast = b.last_activity_date || '9999-12-31';

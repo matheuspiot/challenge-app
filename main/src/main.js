@@ -113,7 +113,7 @@ function rankingPdfHtml(challengeTitle, ranking) {
   const rows = ranking.map((row, idx) => `
     <tr>
       <td class="position">${idx + 1}º</td>
-      <td>${htmlEscape(row.name)}</td>
+      <td>${htmlEscape(row.name)}${row.completed ? ' <span class="done">✓ Concluiu</span>' : ''}</td>
       <td class="km">${htmlEscape(formatPdfKm(row.total_km))} km</td>
     </tr>
   `).join('');
@@ -180,6 +180,12 @@ function rankingPdfHtml(challengeTitle, ranking) {
       width: 140px;
       text-align: right;
       font-weight: 700;
+    }
+    .done {
+      color: #166534;
+      font-size: 12px;
+      font-weight: 700;
+      margin-left: 6px;
     }
     .empty {
       color: #64748b;

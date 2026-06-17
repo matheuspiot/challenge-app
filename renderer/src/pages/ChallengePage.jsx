@@ -797,7 +797,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                             {placement(i + 1)}
                           </span>
                         </td>
-                        <td>{r.name}</td>
+                        <td>{r.name}{r.completed ? <span className="status-badge status-paid completed-badge">✓ Concluiu</span> : null}</td>
                         <td>{asKm(r.total_km, true)}</td>
                         <td><button className="icon-btn" type="button" title="Ver perfil" onClick={() => openProfileFromList(r.id)}><Eye size={15} /></button></td>
                       </tr>

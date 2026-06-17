@@ -177,7 +177,7 @@ Como o repositório de releases é público, o app final não precisa token para
 - Desafios por organizador (isolamento por `user_id`)
 - Cadastro de atletas por desafio
 - Registro manual de km (data, km, observação)
-- Ranking por total de km desc, empate por último registro mais antigo
+- Ranking "linha de chegada": quem conclui a meta primeiro (pela ordem de cadastro dos km no sistema) fica à frente e não perde a posição se outro acumular mais km depois; quem ainda não concluiu é ordenado por total de km
 - Progresso da meta geral e meta individual (quando existir)
 - Exportação CSV do ranking
 - Exportação CSV do histórico de atividades
