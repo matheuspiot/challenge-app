@@ -8,6 +8,7 @@ import {
   Download,
   Eye,
   FileSpreadsheet,
+  Info,
   ListChecks,
   Bell,
   Cake,
@@ -103,6 +104,14 @@ function paymentBadgeClass(statusCode) {
   return 'status-badge status-neutral';
 }
 
+function installmentBadgeClass(statusCode) {
+  if (statusCode === 'PAGO') return 'status-badge status-paid';
+  if (statusCode === 'PARCIAL') return 'status-badge status-partial';
+  if (statusCode === 'EM_ABERTO') return 'status-badge status-neutral';
+  if (statusCode === 'BLOQUEADO') return 'status-badge status-danger';
+  return 'status-badge status-warning';
+}
+
 function daysUntilBirthday(birthDate) {
   if (!birthDate) return null;
   const [yearStr, monthStr, dayStr] = String(birthDate).slice(0, 10).split('-');
@@ -165,6 +174,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
   const [accountForm, setAccountForm] = useState({ name: user.name || '', username: user.username || '', newPassword: '' });
   const [savingAccount, setSavingAccount] = useState(false);
   const [shirtModal, setShirtModal] = useState({ open: false, athleteId: null, athleteName: '', saving: false });
+  const [financeModal, setFinanceModal] = useState({ open: false, athleteId: null, athleteName: '', loading: false, data: null, error: '' });
   const [profileEdit, setProfileEdit] = useState({ active: false, saving: false, form: emptyAthlete });
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [birthdayModalOpen, setBirthdayModalOpen] = useState(false);
@@ -175,6 +185,8 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
     () => `challengeapp:birthdays:seen:${user.id}:${challenge.id}`,
     [user.id, challenge.id]
   );
+
+  const athletesById = useMemo(() => new Map(athletes.map((a) => [Number(a.id), a])), [athletes]);
 
   const selectedAthlete = useMemo(
     () => athletes.find((a) => Number(a.id) === Number(selectedAthleteId)) || null,
@@ -330,6 +342,17 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [shirtModal.open]);
+
+  useEffect(() => {
+    if (!financeModal.open) return undefined;
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        closeFinanceModal();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [financeModal.open]);
 
   useEffect(() => {
     if (!birthdayModalOpen) return undefined;
@@ -552,6 +575,20 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
     } finally {
       closeShirtDeliveryModal();
     }
+  }
+
+  async function openFinanceModal(athlete) {
+    setFinanceModal({ open: true, athleteId: athlete.id, athleteName: athlete.name || '', loading: true, data: null, error: '' });
+    try {
+      const data = await callApi('getAthletePayments', { userId: user.id, athleteId: athlete.id });
+      setFinanceModal((prev) => (prev.athleteId === athlete.id ? { ...prev, loading: false, data } : prev));
+    } catch (err) {
+      setFinanceModal((prev) => (prev.athleteId === athlete.id ? { ...prev, loading: false, error: err.message || 'Falha ao carregar dados financeiros.' } : prev));
+    }
+  }
+
+  function closeFinanceModal() {
+    setFinanceModal({ open: false, athleteId: null, athleteName: '', loading: false, data: null, error: '' });
   }
 
   async function saveAccount(e) {
@@ -785,7 +822,7 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
               </div>
               <div className="table-wrap">
                 <table>
-                  <thead><tr><th>#</th><th>Atleta</th><th>Total KM</th><th>Perfil</th></tr></thead>
+                  <thead><tr><th>#</th><th>Atleta</th><th>Total KM</th><th className="ranking-actions-col">Perfil</th></tr></thead>
                   <tbody>
                     {ranking.map((r, i) => (
                       <tr key={r.id}>
@@ -799,7 +836,26 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                         </td>
                         <td>{r.name}{r.completed ? <span className="status-badge status-paid completed-badge">✓ Concluiu</span> : null}</td>
                         <td>{asKm(r.total_km, true)}</td>
-                        <td><button className="icon-btn" type="button" title="Ver perfil" onClick={() => openProfileFromList(r.id)}><Eye size={15} /></button></td>
+                        <td className="ranking-actions-col">
+                          {(() => {
+                            const athlete = athletesById.get(Number(r.id));
+                            const isPaid = athlete?.payment_status?.statusCode === 'PAGO';
+                            return (
+                              <div className="icon-actions ranking-actions">
+                                <span className="ranking-shirt" title="Tamanho da camisa"><Shirt size={14} />{athlete?.shirt_size || '-'}</span>
+                                <button
+                                  className={isPaid ? 'icon-btn finance-info-btn paid' : 'icon-btn finance-info-btn pending'}
+                                  type="button"
+                                  title={isPaid ? 'Pagamento concluído' : 'Pagamento pendente'}
+                                  onClick={() => openFinanceModal(r)}
+                                >
+                                  <Info size={15} />
+                                </button>
+                                <button className="icon-btn" type="button" title="Ver perfil" onClick={() => openProfileFromList(r.id)}><Eye size={15} /></button>
+                              </div>
+                            );
+                          })()}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1153,6 +1209,59 @@ export function ChallengePage({ user, challenge, onBack, onUpdated, onUserUpdate
                     {shirtModal.saving ? 'Confirmando...' : 'Confirmar'}
                   </button>
                   <button className="btn-secondary" type="button" onClick={closeShirtDeliveryModal}>Cancelar</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {financeModal.open && (
+            <div className="modal-overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) closeFinanceModal(); }}>
+              <div className="modal-box finance-modal">
+                <h3>Situação financeira</h3>
+                <p className="muted">{financeModal.athleteName}</p>
+                {financeModal.loading ? <p>Carregando...</p> : null}
+                {financeModal.error ? <p className="error-box">{financeModal.error}</p> : null}
+                {financeModal.data && (() => {
+                  const { enrollment, installments, paymentStatus } = financeModal.data;
+                  const totalCents = Number(enrollment?.total_amount_cents || 0);
+                  const openCents = installments.reduce((sum, row) => sum + Number(row.open_cents || 0), 0);
+                  return (
+                    <>
+                      <p>
+                        <span className={paymentBadgeClass(paymentStatus?.statusCode)}>
+                          {paymentStatus?.statusCode === 'PAGO' ? 'Pagamento concluído' : `Pendente • ${paymentStatus?.label || '-'}`}
+                        </span>
+                      </p>
+                      <div className="finance-modal-summary">
+                        <div><small>Inscrição</small><strong>{asMoney(totalCents)}</strong></div>
+                        <div><small>Pago</small><strong>{asMoney(totalCents - openCents)}</strong></div>
+                        <div><small>Em aberto</small><strong className={openCents > 0 ? 'text-danger' : ''}>{asMoney(openCents)}</strong></div>
+                        <div><small>Forma</small><strong>{getInstallmentDisplay(installments)}</strong></div>
+                      </div>
+                      {paymentStatus?.blockReason ? <p className="error-box">{paymentStatus.blockReason}</p> : null}
+                      <div className="table-wrap">
+                        <table>
+                          <thead><tr><th>#</th><th>Vencimento</th><th>Valor</th><th>Status</th></tr></thead>
+                          <tbody>
+                            {installments.map((i) => (
+                              <tr key={i.id}>
+                                <td>{i.installment_number}</td>
+                                <td>{asDate(i.due_date)}</td>
+                                <td>{asMoney(i.amount_cents)}</td>
+                                <td><span className={installmentBadgeClass(i.statusCode)}>{i.statusLabel}</span></td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  );
+                })()}
+                <div className="actions">
+                  <button className="btn-primary" type="button" onClick={() => { const id = financeModal.athleteId; closeFinanceModal(); openProfileFromList(id); }}>
+                    Ver perfil completo
+                  </button>
+                  <button className="btn-secondary" type="button" onClick={closeFinanceModal}>Fechar</button>
                 </div>
               </div>
             </div>

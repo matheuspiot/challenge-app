@@ -179,6 +179,7 @@ Como o repositório de releases é público, o app final não precisa token para
 - Registro manual de km (data, km, observação)
 - Ranking "linha de chegada": quem conclui a meta primeiro (pela ordem de cadastro dos km no sistema) fica à frente e não perde a posição se outro acumular mais km depois; quem ainda não concluiu é ordenado por total de km
 - Progresso da meta geral e meta individual (quando existir)
+- Ranking mostra, ao lado do botão de perfil, o tamanho da camisa do atleta e um botão de info (verde = pago, vermelho = pendente) que abre a situação financeira com as parcelas
 - Exportação CSV do ranking
 - Exportação CSV do histórico de atividades
 - Backup do banco (`.db`)

@@ -393,3 +393,18 @@ p, small { color: var(--muted); }
   .finance-grid { grid-template-columns: 1fr; }
   .challenge-item { flex-direction: column; }
 }
+
+.ranking-actions-col { text-align: right; }
+.ranking-actions { align-items: center; }
+.ranking-shirt {
+  display: inline-flex; align-items: center; gap: 4px; min-width: 118px; height: 34px; padding: 0 10px; border-radius: 10px;
+  border: 1px solid var(--border); background: #f8fafc; color: #334155; font-size: 0.82rem; font-weight: 600; white-space: nowrap;
+}
+.finance-info-btn.paid { background: #dcfce7; border-color: #86efac; color: #166534; }
+.finance-info-btn.pending { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+.finance-modal { width: min(560px, 100%); }
+.finance-modal h3 { margin: 0 0 4px; }
+.finance-modal-summary { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 12px 0; }
+.finance-modal-summary > div { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; }
+.finance-modal .table-wrap { max-height: 240px; overflow-y: auto; margin-bottom: 12px; }
+.text-danger { color: #b91c1c; }
